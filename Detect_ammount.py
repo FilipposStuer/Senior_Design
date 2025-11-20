@@ -3,9 +3,10 @@ import numpy as np
 
 
 
-image = cv2.imread('balls.jpg',cv2.IMREAD_GRAYSCALE)
-blur = cv2.GaussianBlur(image, (11, 11), 0)
-canny = cv2.Canny(blur, 60 , 190, 3)
+image = cv2.resize(cv2.imread('balls3.jpg'),(510,600))
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+blur = cv2.GaussianBlur(gray, (11, 11), 0)
+canny = cv2.Canny(blur, 0  , 130 , 3)
 dilated = cv2.dilate(canny, (1, 1), iterations=0)
 
 
@@ -14,15 +15,34 @@ dilated = cv2.dilate(canny, (1, 1), iterations=0)
 rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 objectIm=cv2.drawContours(rgb, objects[0], -1, (0, 255, 0), 2)
 cv2.imshow('Detected Objects', objectIm)
-mask = np.zeros_like(image)
+mask = np.zeros_like(gray)
 
-
-extracted_region = cv2.bitwise_and(objectIm, objectIm, mask=mask)
+cv2.drawContours(mask, objects, -1, (255,255,255), cv2.FILLED)
+extracted_region = cv2.bitwise_and(image, image, mask=mask)
 new_image = np.zeros_like(image)
 cv2.imshow('Contoured', extracted_region)
-print("objects in image : ", len(objects))
 
-print(objects[0])
+
+
+
+
+mask2 = np.zeros_like(gray)
+cv2.drawContours(mask2, objects[4:5], -1, (255,255,255), cv2.FILLED)
+extracted_region2 = cv2.bitwise_and(image, image, mask=mask2)
+cv2.imshow('Contoured2', extracted_region2)
+print(extracted_region2)
+
+
+
+print("objects in image : ", len(objects))
+i=0
+while i < len(objects):
+    mask2 = np.zeros_like(gray)
+    cv2.drawContours(mask2, objects[i:i+1], -1, (255,255,255), cv2.FILLED)
+    extracted_region2 = cv2.bitwise_and(image, image, mask=mask2)
+    file_name=f"imageSingle{i}.jpg"
+    cv2.imwrite(file_name, extracted_region2)
+    i+=1
 
 
 # _, binary = cv2.threshold(image, 150, 255, cv2.THRESH_BINARY_INV)
