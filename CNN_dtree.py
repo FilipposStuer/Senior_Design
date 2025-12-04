@@ -1,7 +1,9 @@
+import numpy as np 
 import os
 import glob
+
 import cv2
-import numpy as np
+
 
 import torch
 import torch.nn.functional as F
@@ -15,7 +17,7 @@ from pathlib import Path
 
 # 1. Dataset settings
 
-DATASET_PATH = r"D:\dataset-resized\dataset-resized"
+DATASET_PATH = r"/Users/filipposstuer/testing/Senior_Design/dataset-resized"
 
 class_folders = {
     "cardboard": 0,
