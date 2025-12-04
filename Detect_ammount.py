@@ -3,6 +3,7 @@ import numpy as np
 import glob
 
 images_card=glob.glob("**/cardboard/**.jpg",recursive=True)
+
 # images_glass=glob.glob("**/*gl*.jpg",recursive=True)
 # images_metal=glob.glob("**/*me*.jpg",recursive=True)
 # images_paper=glob.glob("**/*pa*.jpg",recursive=True)
@@ -41,7 +42,7 @@ for k in images_card:
 
 
 
-    #print("objects in image : ", len(objects))
+    print("objects in image : ", len(objects))
     i=0
     while i < len(objects):
         mask2 = np.zeros_like(gray)
