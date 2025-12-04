@@ -17,7 +17,7 @@ from pathlib import Path
 
 # 1. Dataset settings
 
-DATASET_PATH = r"/Users/filipposstuer/testing/Senior_Design/dataset-resized"
+DATASET_PATH = r"D:\dataset-resized\dataset-resized"
 
 class_folders = {
     "cardboard": 0,
@@ -133,7 +133,7 @@ print(classification_report(y_test, y_pred, digits=4))
 
 print("WORKDIR:", os.getcwd())
 
-save_dir = Path(r"D:\AI detect")
+save_dir = Path(r"C:\AI detect")
 save_dir.mkdir(parents=True, exist_ok=True)
 
 MODEL_SAVE_PATH = save_dir / "trash_rf_model.pkl"
@@ -152,3 +152,35 @@ try:
     print("Model saved OK.")
 except Exception as e:
     print("Error when saving model:", repr(e))
+
+print("\n=== Evaluating on FULL dataset (max 500 per class) ===")
+
+features_full = []
+labels_full = []
+
+MAX_PER_CLASS_EVAL = 500  
+
+for folder_name, label in class_folders.items():
+    folder_path = os.path.join(DATASET_PATH, folder_name)
+    image_files = glob.glob(os.path.join(folder_path, "*.jpg"))
+    image_files = image_files[:MAX_PER_CLASS_EVAL]
+
+    print(f"[EVAL] {folder_name}: {len(image_files)} images")
+
+    for img_path in image_files:
+        img = cv2.imread(img_path)
+        if img is None:
+            print("Warning (eval): cannot read", img_path)
+            continue
+
+        feat_vec = extract_yolo_features_bgr(img)
+        features_full.append(feat_vec)
+        labels_full.append(label)
+
+features_full = np.array(features_full, dtype=np.float32)
+labels_full = np.array(labels_full, dtype=np.int32)
+
+y_full_pred = rf.predict(features_full)
+full_acc = accuracy_score(labels_full, y_full_pred)
+print("Accuracy on FULL dataset (<=500 per class):", full_acc)
+print("Samples used:", features_full.shape[0])

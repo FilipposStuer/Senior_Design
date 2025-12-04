@@ -11,7 +11,7 @@ from tkinter import filedialog, messagebox
 # ----------------- 1. Model path -----------------
 # Load model from the same folder as this script
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(SCRIPT_DIR, "trash_rf_model.pkl")
+MODEL_PATH = r"/Users/filipposstuer/testing/Senior_Design/D:\AI detect/trash_rf_model.pkl"
 
 YOLO_IMG_SIZE = 640
 label_map = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
