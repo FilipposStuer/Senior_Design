@@ -58,7 +58,7 @@ CAMERA_INDEX  = 0      # 0 = first camera connected. Try 1 or 2 if wrong camera 
 FRAME_WIDTH   = 640    # Camera resolution width  (pixels)
 FRAME_HEIGHT  = 480    # Camera resolution height (pixels)
 
-SERIAL_PORT     = "/dev/ttyACM0"  # USB port where ItsyBitsy appears on Raspberry Pi OS
+SERIAL_PORT     = "/dev/cu.usbmodem1101"  # USB port where ItsyBitsy appears on Raspberry Pi OS
 SERIAL_BAUDRATE = 9600            # Communication speed (must match ItsyBitsy firmware setting)
 SERIAL_TIMEOUT  = 30              # Max seconds to wait for ItsyBitsy to finish a pick sequence
 

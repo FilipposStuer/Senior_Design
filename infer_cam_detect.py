@@ -15,7 +15,7 @@ def draw_box(img, xyxy, label: str):
 
 
 def main():
-    DETECT_WEIGHTS = r"C:\Users\szc\Desktop\detector\runs\detect\runs\yolo_detect_train\weights\best.pt"
+    DETECT_WEIGHTS = r"./best.pt"
     
     CLS_WEIGHTS = None  # 先不启用：例如 "path/to/cls_best.pt"
 

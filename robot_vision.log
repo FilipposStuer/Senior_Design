@@ -1,0 +1,326 @@
+2026-02-24 12:07:11,213 [INFO] ============================================================
+2026-02-24 12:07:11,213 [INFO] ROBOT VISION - RASPBERRY PI
+2026-02-24 12:07:11,213 [INFO] Vision + Detection only. Arm control → ItsyBitsy M4
+2026-02-24 12:07:11,214 [INFO] ============================================================
+2026-02-24 12:07:11,214 [INFO] Loading model from 'best.pt'...
+2026-02-24 12:07:11,265 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-02-24 12:07:11,265 [INFO] Opening camera (index 0)...
+2026-02-24 12:07:11,401 [CRITICAL] Could not open camera. Check connection or index.
+2026-02-24 12:07:23,554 [INFO] ============================================================
+2026-02-24 12:07:23,554 [INFO] ROBOT VISION - RASPBERRY PI
+2026-02-24 12:07:23,554 [INFO] Vision + Detection only. Arm control → ItsyBitsy M4
+2026-02-24 12:07:23,554 [INFO] ============================================================
+2026-02-24 12:07:23,554 [INFO] Loading model from 'best.pt'...
+2026-02-24 12:07:23,575 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-02-24 12:07:23,575 [INFO] Opening camera (index 0)...
+2026-02-24 12:07:26,052 [INFO] Camera ready: 640x480
+2026-02-24 12:07:26,052 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'
+2026-02-24 12:07:26,052 [WARNING] Running without ItsyBitsy connection.
+2026-02-24 12:07:26,052 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-02-24 12:07:26,052 [INFO] ------------------------------------------------------------
+2026-02-24 12:07:40,139 [INFO] Quit requested.
+2026-02-24 12:07:40,204 [INFO] Shutdown complete.
+2026-02-24 12:08:08,435 [INFO] ============================================================
+2026-02-24 12:08:08,435 [INFO] ROBOT VISION - RASPBERRY PI
+2026-02-24 12:08:08,435 [INFO] Vision + Detection only. Arm control → ItsyBitsy M4
+2026-02-24 12:08:08,435 [INFO] ============================================================
+2026-02-24 12:08:08,435 [INFO] Loading model from 'best.pt'...
+2026-02-24 12:08:08,463 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-02-24 12:08:08,463 [INFO] Opening camera (index 0)...
+2026-02-24 12:08:09,751 [INFO] Camera ready: 640x480
+2026-02-24 12:08:09,751 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'
+2026-02-24 12:08:09,751 [WARNING] Running without ItsyBitsy connection.
+2026-02-24 12:08:09,751 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-02-24 12:08:09,751 [INFO] ------------------------------------------------------------
+2026-02-24 12:08:22,151 [INFO] Quit requested.
+2026-02-24 12:08:22,200 [INFO] Shutdown complete.
+2026-02-24 12:09:12,428 [INFO] ============================================================
+2026-02-24 12:09:12,428 [INFO] ROBOT VISION - RASPBERRY PI
+2026-02-24 12:09:12,428 [INFO] Vision + Detection only. Arm control → ItsyBitsy M4
+2026-02-24 12:09:12,428 [INFO] ============================================================
+2026-02-24 12:09:12,428 [INFO] Loading model from 'best.pt'...
+2026-02-24 12:09:12,460 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-02-24 12:09:12,460 [INFO] Opening camera (index 0)...
+2026-02-24 12:09:13,832 [INFO] Camera ready: 640x480
+2026-02-24 12:09:13,832 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'
+2026-02-24 12:09:13,832 [WARNING] Running without ItsyBitsy connection.
+2026-02-24 12:09:13,832 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-02-24 12:09:13,832 [INFO] ------------------------------------------------------------
+2026-02-24 12:09:48,743 [INFO] Quit requested.
+2026-02-24 12:09:48,795 [INFO] Shutdown complete.
+2026-02-24 12:13:35,112 [INFO] ============================================================
+2026-02-24 12:13:35,112 [INFO] ROBOT VISION - RASPBERRY PI
+2026-02-24 12:13:35,112 [INFO] Vision + Detection only. Arm control → ItsyBitsy M4
+2026-02-24 12:13:35,112 [INFO] ============================================================
+2026-02-24 12:13:35,112 [INFO] Loading model from 'best.pt'...
+2026-02-24 12:13:35,166 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-02-24 12:13:35,166 [INFO] Opening camera (index 0)...
+2026-02-24 12:13:37,323 [INFO] Camera ready: 640x480
+2026-02-24 12:13:37,323 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'
+2026-02-24 12:13:37,323 [WARNING] Running without ItsyBitsy connection.
+2026-02-24 12:13:37,323 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-02-24 12:13:37,323 [INFO] ------------------------------------------------------------
+2026-02-24 12:13:57,604 [INFO] Quit requested.
+2026-02-24 12:13:57,674 [INFO] Shutdown complete.
+2026-03-03 10:13:50,105 [INFO] ============================================================
+2026-03-03 10:13:50,105 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 10:13:50,105 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 10:13:50,105 [INFO] ============================================================
+2026-03-03 10:13:50,105 [INFO] Loading model from 'best.pt'...
+2026-03-03 10:13:50,133 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 10:13:50,133 [INFO] Opening camera (index 0)...
+2026-03-03 10:13:54,613 [INFO] ============================================================
+2026-03-03 10:13:54,613 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 10:13:54,614 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 10:13:54,614 [INFO] ============================================================
+2026-03-03 10:13:54,614 [INFO] Loading model from 'best.pt'...
+2026-03-03 10:13:54,627 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 10:13:54,627 [INFO] Opening camera (index 0)...
+2026-03-03 10:13:55,325 [INFO] Camera ready: 640x480
+2026-03-03 10:13:55,325 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'
+2026-03-03 10:13:55,325 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 10:13:55,326 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 10:13:55,326 [INFO] ------------------------------------------------------------
+2026-03-03 10:13:56,594 [INFO] Camera ready: 640x480
+2026-03-03 10:13:56,595 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'
+2026-03-03 10:13:56,595 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 10:13:56,595 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 10:13:56,595 [INFO] ------------------------------------------------------------
+2026-03-03 10:13:57,600 [ERROR] Failed to capture frame.
+2026-03-03 10:13:57,850 [INFO] Shutdown complete.
+2026-03-03 10:14:56,580 [INFO] Quit requested.
+2026-03-03 10:14:56,634 [INFO] Shutdown complete.
+2026-03-03 10:15:10,466 [INFO] ============================================================
+2026-03-03 10:15:10,467 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 10:15:10,467 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 10:15:10,467 [INFO] ============================================================
+2026-03-03 10:15:10,467 [INFO] Loading model from 'best.pt'...
+2026-03-03 10:15:10,488 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 10:15:10,488 [INFO] Opening camera (index 0)...
+2026-03-03 10:15:12,375 [INFO] Camera ready: 640x480
+2026-03-03 10:15:12,375 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'
+2026-03-03 10:15:12,375 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 10:15:12,375 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 10:15:12,375 [INFO] ------------------------------------------------------------
+2026-03-03 10:15:17,996 [INFO] Sending PICK command → ItsyBitsy: paper at (319, 240)
+2026-03-03 10:15:17,996 [INFO] Sending initial PICK: PICK PAPER 319 240 639 480
+2026-03-03 10:15:17,996 [ERROR] Serial not available.
+2026-03-03 10:15:17,996 [ERROR] Failed to send PICK command.
+2026-03-03 10:15:21,329 [INFO] Sending PICK command → ItsyBitsy: paper at (351, 239)
+2026-03-03 10:15:21,329 [INFO] Sending initial PICK: PICK PAPER 351 239 575 479
+2026-03-03 10:15:21,330 [ERROR] Serial not available.
+2026-03-03 10:15:21,330 [ERROR] Failed to send PICK command.
+2026-03-03 10:15:23,729 [INFO] Sending PICK command → ItsyBitsy: paper at (319, 240)
+2026-03-03 10:15:23,729 [INFO] Sending initial PICK: PICK PAPER 319 240 639 480
+2026-03-03 10:15:23,729 [ERROR] Serial not available.
+2026-03-03 10:15:23,729 [ERROR] Failed to send PICK command.
+2026-03-03 10:17:12,648 [INFO] Quit requested.
+2026-03-03 10:17:12,708 [INFO] Shutdown complete.
+2026-03-03 10:46:20,548 [INFO] ============================================================
+2026-03-03 10:46:20,548 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 10:46:20,548 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 10:46:20,548 [INFO] ============================================================
+2026-03-03 10:46:20,548 [INFO] Loading model from 'best.pt'...
+2026-03-03 10:46:20,577 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 10:46:20,577 [INFO] Opening camera (index 0)...
+2026-03-03 10:46:23,534 [INFO] Camera ready: 640x480
+2026-03-03 10:46:23,534 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'
+2026-03-03 10:46:23,535 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 10:46:23,535 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 10:46:23,535 [INFO] ------------------------------------------------------------
+2026-03-03 10:48:28,941 [INFO] Quit requested.
+2026-03-03 10:48:29,050 [INFO] Shutdown complete.
+2026-03-03 10:48:51,282 [INFO] ============================================================
+2026-03-03 10:48:51,282 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 10:48:51,282 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 10:48:51,282 [INFO] ============================================================
+2026-03-03 10:48:51,282 [INFO] Loading model from 'best.pt'...
+2026-03-03 10:48:51,320 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 10:48:51,320 [INFO] Opening camera (index 0)...
+2026-03-03 10:48:52,672 [INFO] Camera ready: 640x480
+2026-03-03 10:48:52,672 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'
+2026-03-03 10:48:52,672 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 10:48:52,672 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 10:48:52,672 [INFO] ------------------------------------------------------------
+2026-03-03 10:53:25,497 [INFO] Quit requested.
+2026-03-03 10:53:25,549 [INFO] Shutdown complete.
+2026-03-03 10:55:48,259 [INFO] ============================================================
+2026-03-03 10:55:48,259 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 10:55:48,259 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 10:55:48,259 [INFO] ============================================================
+2026-03-03 10:55:48,259 [INFO] Loading model from 'best.pt'...
+2026-03-03 10:55:48,283 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 10:55:48,283 [INFO] Opening camera (index 0)...
+2026-03-03 10:55:50,508 [INFO] Camera ready: 640x480
+2026-03-03 10:55:50,508 [ERROR] Could not connect to ItsyBitsy: [Errno 16] could not open port /dev/cu.usbmodem1101: [Errno 16] Resource busy: '/dev/cu.usbmodem1101'
+2026-03-03 10:55:50,508 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 10:55:50,508 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 10:55:50,508 [INFO] ------------------------------------------------------------
+2026-03-03 10:56:13,340 [INFO] Quit requested.
+2026-03-03 10:56:13,380 [INFO] Shutdown complete.
+2026-03-03 11:02:41,457 [INFO] ============================================================
+2026-03-03 11:02:41,457 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 11:02:41,457 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 11:02:41,457 [INFO] ============================================================
+2026-03-03 11:02:41,457 [INFO] Loading model from 'best.pt'...
+2026-03-03 11:02:41,486 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 11:02:41,486 [INFO] Opening camera (index 0)...
+2026-03-03 11:02:43,555 [INFO] Camera ready: 640x480
+2026-03-03 11:02:43,555 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/cu.usbmodem1101: [Errno 2] No such file or directory: '/dev/cu.usbmodem1101'
+2026-03-03 11:02:43,555 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 11:02:43,555 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 11:02:43,555 [INFO] ------------------------------------------------------------
+2026-03-03 11:03:00,638 [INFO] Quit requested.
+2026-03-03 11:03:00,677 [INFO] Shutdown complete.
+2026-03-03 11:03:48,421 [INFO] ============================================================
+2026-03-03 11:03:48,422 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 11:03:48,422 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 11:03:48,422 [INFO] ============================================================
+2026-03-03 11:03:48,422 [INFO] Loading model from 'best.pt'...
+2026-03-03 11:03:48,456 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 11:03:48,456 [INFO] Opening camera (index 0)...
+2026-03-03 11:03:49,635 [INFO] Camera ready: 640x480
+2026-03-03 11:03:49,635 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/cu.usbmodem1101: [Errno 2] No such file or directory: '/dev/cu.usbmodem1101'
+2026-03-03 11:03:49,635 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 11:03:49,635 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 11:03:49,635 [INFO] ------------------------------------------------------------
+2026-03-03 11:06:22,388 [INFO] Interrupted by user.
+2026-03-03 11:06:22,442 [INFO] Shutdown complete.
+2026-03-03 11:11:01,137 [INFO] ============================================================
+2026-03-03 11:11:01,138 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 11:11:01,138 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 11:11:01,138 [INFO] ============================================================
+2026-03-03 11:11:01,138 [INFO] Loading model from 'best.pt'...
+2026-03-03 11:11:01,166 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 11:11:01,166 [INFO] Opening camera (index 0)...
+2026-03-03 11:11:03,666 [INFO] Camera ready: 640x480
+2026-03-03 11:11:03,667 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/cu.usbmodem1101: [Errno 2] No such file or directory: '/dev/cu.usbmodem1101'
+2026-03-03 11:11:03,667 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 11:11:03,667 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 11:11:03,667 [INFO] ------------------------------------------------------------
+2026-03-03 11:11:29,483 [INFO] Quit requested.
+2026-03-03 11:11:29,533 [INFO] Shutdown complete.
+2026-03-03 11:18:08,321 [INFO] ============================================================
+2026-03-03 11:18:08,321 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 11:18:08,321 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 11:18:08,321 [INFO] ============================================================
+2026-03-03 11:18:08,321 [INFO] Loading model from 'best.pt'...
+2026-03-03 11:18:08,348 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 11:18:08,348 [INFO] Opening camera (index 0)...
+2026-03-03 11:18:09,296 [INFO] Camera ready: 640x480
+2026-03-03 11:18:09,297 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/cu.usbmodem1101: [Errno 2] No such file or directory: '/dev/cu.usbmodem1101'
+2026-03-03 11:18:09,297 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 11:18:09,297 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 11:18:09,297 [INFO] ------------------------------------------------------------
+2026-03-03 11:18:26,384 [INFO] Quit requested.
+2026-03-03 11:18:26,421 [INFO] Shutdown complete.
+2026-03-03 11:22:40,001 [INFO] ============================================================
+2026-03-03 11:22:40,001 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 11:22:40,001 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 11:22:40,001 [INFO] ============================================================
+2026-03-03 11:22:40,001 [INFO] Loading model from 'best.pt'...
+2026-03-03 11:22:40,019 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 11:22:40,019 [INFO] Opening camera (index 0)...
+2026-03-03 11:22:41,226 [INFO] Camera ready: 640x480
+2026-03-03 11:22:41,226 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/cu.usbmodem1101: [Errno 2] No such file or directory: '/dev/cu.usbmodem1101'
+2026-03-03 11:22:41,226 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 11:22:41,226 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 11:22:41,226 [INFO] ------------------------------------------------------------
+2026-03-03 11:23:03,677 [INFO] Quit requested.
+2026-03-03 11:23:03,719 [INFO] Shutdown complete.
+2026-03-03 11:57:56,438 [INFO] ============================================================
+2026-03-03 11:57:56,439 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 11:57:56,439 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 11:57:56,439 [INFO] ============================================================
+2026-03-03 11:57:56,439 [INFO] Loading model from 'best.pt'...
+2026-03-03 11:57:56,455 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 11:57:56,455 [INFO] Opening camera (index 0)...
+2026-03-03 11:57:58,953 [INFO] Camera ready: 640x480
+2026-03-03 11:57:58,953 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/cu.usbmodem1101: [Errno 2] No such file or directory: '/dev/cu.usbmodem1101'
+2026-03-03 11:57:58,953 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 11:57:58,953 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 11:57:58,953 [INFO] ------------------------------------------------------------
+2026-03-03 11:58:36,400 [INFO] Sending PICK command → ItsyBitsy: paper at (370, 237)
+2026-03-03 11:58:36,400 [INFO] Sending initial PICK: PICK PAPER 370 237 539 313
+2026-03-03 11:58:36,400 [ERROR] Serial not available.
+2026-03-03 11:58:36,401 [ERROR] Failed to send PICK command.
+2026-03-03 11:58:37,882 [INFO] Sending PICK command → ItsyBitsy: paper at (369, 232)
+2026-03-03 11:58:37,882 [INFO] Sending initial PICK: PICK PAPER 369 232 541 310
+2026-03-03 11:58:37,882 [ERROR] Serial not available.
+2026-03-03 11:58:37,882 [ERROR] Failed to send PICK command.
+2026-03-03 11:58:49,563 [INFO] Sending PICK command → ItsyBitsy: paper at (354, 221)
+2026-03-03 11:58:49,564 [INFO] Sending initial PICK: PICK PAPER 354 221 547 309
+2026-03-03 11:58:49,564 [ERROR] Serial not available.
+2026-03-03 11:58:49,564 [ERROR] Failed to send PICK command.
+2026-03-03 11:58:50,457 [INFO] Sending PICK command → ItsyBitsy: paper at (358, 214)
+2026-03-03 11:58:50,457 [INFO] Sending initial PICK: PICK PAPER 358 214 557 307
+2026-03-03 11:58:50,457 [ERROR] Serial not available.
+2026-03-03 11:58:50,457 [ERROR] Failed to send PICK command.
+2026-03-03 11:58:50,753 [INFO] Sending PICK command → ItsyBitsy: paper at (359, 215)
+2026-03-03 11:58:50,753 [INFO] Sending initial PICK: PICK PAPER 359 215 557 308
+2026-03-03 11:58:50,753 [ERROR] Serial not available.
+2026-03-03 11:58:50,753 [ERROR] Failed to send PICK command.
+2026-03-03 11:58:50,950 [INFO] Sending PICK command → ItsyBitsy: paper at (360, 215)
+2026-03-03 11:58:50,950 [INFO] Sending initial PICK: PICK PAPER 360 215 555 308
+2026-03-03 11:58:50,950 [ERROR] Serial not available.
+2026-03-03 11:58:50,950 [ERROR] Failed to send PICK command.
+2026-03-03 11:58:51,115 [INFO] Sending PICK command → ItsyBitsy: paper at (361, 215)
+2026-03-03 11:58:51,115 [INFO] Sending initial PICK: PICK PAPER 361 215 553 307
+2026-03-03 11:58:51,115 [ERROR] Serial not available.
+2026-03-03 11:58:51,115 [ERROR] Failed to send PICK command.
+2026-03-03 11:58:51,280 [INFO] Sending PICK command → ItsyBitsy: paper at (361, 217)
+2026-03-03 11:58:51,280 [INFO] Sending initial PICK: PICK PAPER 361 217 553 305
+2026-03-03 11:58:51,280 [ERROR] Serial not available.
+2026-03-03 11:58:51,280 [ERROR] Failed to send PICK command.
+2026-03-03 11:58:51,478 [INFO] Sending PICK command → ItsyBitsy: paper at (360, 218)
+2026-03-03 11:58:51,478 [INFO] Sending initial PICK: PICK PAPER 360 218 550 302
+2026-03-03 11:58:51,478 [ERROR] Serial not available.
+2026-03-03 11:58:51,478 [ERROR] Failed to send PICK command.
+2026-03-03 11:58:52,933 [INFO] Quit requested.
+2026-03-03 11:58:52,998 [INFO] Shutdown complete.
+2026-03-03 12:00:17,123 [INFO] ============================================================
+2026-03-03 12:00:17,124 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 12:00:17,124 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 12:00:17,124 [INFO] ============================================================
+2026-03-03 12:00:17,124 [INFO] Loading model from 'best.pt'...
+2026-03-03 12:00:17,160 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 12:00:17,160 [INFO] Opening camera (index 0)...
+2026-03-03 12:00:19,542 [INFO] Camera ready: 640x480
+2026-03-03 12:00:19,543 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/cu.usbmodem1101: [Errno 2] No such file or directory: '/dev/cu.usbmodem1101'
+2026-03-03 12:00:19,543 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 12:00:19,543 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 12:00:19,543 [INFO] ------------------------------------------------------------
+2026-03-03 12:00:27,089 [INFO] Quit requested.
+2026-03-03 12:00:27,147 [INFO] Shutdown complete.
+2026-03-03 12:09:53,101 [INFO] ============================================================
+2026-03-03 12:09:53,101 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 12:09:53,101 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 12:09:53,101 [INFO] ============================================================
+2026-03-03 12:09:53,101 [INFO] Loading model from 'best.pt'...
+2026-03-03 12:09:53,160 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 12:09:53,160 [INFO] Opening camera (index 0)...
+2026-03-03 12:09:55,823 [INFO] Camera ready: 640x480
+2026-03-03 12:09:55,824 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/cu.usbmodem1101: [Errno 2] No such file or directory: '/dev/cu.usbmodem1101'
+2026-03-03 12:09:55,824 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 12:09:55,824 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 12:09:55,824 [INFO] ------------------------------------------------------------
+2026-03-03 12:10:07,873 [INFO] Sending PICK command → ItsyBitsy: paper at (385, 288)
+2026-03-03 12:10:07,873 [INFO] Sending initial PICK: PICK PAPER 385 288 417 300
+2026-03-03 12:10:07,873 [ERROR] Serial not available.
+2026-03-03 12:10:07,873 [ERROR] Failed to send PICK command.
+2026-03-03 12:10:32,807 [ERROR] Failed to capture frame.
+2026-03-03 12:10:32,896 [INFO] Shutdown complete.
+2026-03-03 13:35:46,369 [INFO] ============================================================
+2026-03-03 13:35:46,370 [INFO] ROBOT VISION - RASPBERRY PI (Closed-Loop Version)
+2026-03-03 13:35:46,370 [INFO] Vision + Detection + Position Feedback → ItsyBitsy M4 PID
+2026-03-03 13:35:46,370 [INFO] ============================================================
+2026-03-03 13:35:46,370 [INFO] Loading model from 'best.pt'...
+2026-03-03 13:35:46,398 [INFO] Model loaded. Classes: {0: 'BIODEGRADABLE', 1: 'CARDBOARD', 2: 'GLASS', 3: 'METAL', 4: 'PAPER', 5: 'PLASTIC'}
+2026-03-03 13:35:46,399 [INFO] Opening camera (index 0)...
+2026-03-03 13:35:48,665 [INFO] Camera ready: 640x480
+2026-03-03 13:35:48,665 [ERROR] Could not connect to ItsyBitsy: [Errno 2] could not open port /dev/cu.usbmodem1101: [Errno 2] No such file or directory: '/dev/cu.usbmodem1101'
+2026-03-03 13:35:48,665 [WARNING] Running without ItsyBitsy connection.
+2026-03-03 13:35:48,665 [INFO] System ready!  Controls: [P] pick  [Q] quit
+2026-03-03 13:35:48,665 [INFO] ------------------------------------------------------------
+2026-03-03 13:36:00,761 [INFO] Quit requested.
+2026-03-03 13:36:00,817 [INFO] Shutdown complete.
