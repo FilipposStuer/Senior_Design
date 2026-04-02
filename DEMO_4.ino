@@ -62,14 +62,11 @@ void toIKSpace(float rx, float ry, float &ikx, float &iky) {
   iky = ry;   // y needs no translation
 }
 
-// Compute base angle from received (pre-translation) x and y.
-// Formula: arcsin(sqrt(x^2 + y^2) / x) converted to degrees.
-// Returns 90 if x is zero to avoid division by zero.
-int computeBaseAngle(float rx, float ry) {
-  if (rx == 0.0f) return 90;
-  float r = sqrt(rx * rx + ry * ry);
-  float ratio = constrain(r / rx, -1.0f, 1.0f);  // clamp for asin safety
-  return (int)round(asin(ratio) * 180.0f / PI);
+// Compute base angle as the horizontal sweep angle to the target.
+// Uses atan2(y, x) so the base rotates to point directly at the object.
+// +90 offset maps 0 deg (straight ahead) to servo centre (90 deg).
+int computeBaseAngle(float x, float y) {
+  return (int)round(atan2(y, x) * 180.0f / PI) - 90;
 }
 
 int currentAngles[6];
