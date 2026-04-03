@@ -35,9 +35,9 @@ const int GRIPPER_OPEN   = 90;
 
 const int HOME_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
 
-// Workspace limits in IK table space (after translation)
-const float WS_X_MIN =  1.5f;
-const float WS_X_MAX =  6.5f;
+// Workspace limits in IK table space (post-translation)
+const float WS_X_MIN =  7.2f;
+const float WS_X_MAX = 15.0f;
 const float WS_Y_MIN =  0.6f;
 const float WS_Y_MAX =  4.4f;
 
@@ -66,7 +66,7 @@ void toIKSpace(float rx, float ry, float &ikx, float &iky) {
 // Uses atan2(y, x) so the base rotates to point directly at the object.
 // +90 offset maps 0 deg (straight ahead) to servo centre (90 deg).
 int computeBaseAngle(float x, float y) {
-  return (int)round(atan2(y, x) * 180.0f / PI) - 90;
+  return (int)round(atan2(y, x) * 180.0f / PI) + 70;
 }
 
 int currentAngles[6];
@@ -140,7 +140,9 @@ bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
   if (bestIdx >= 0) {
     memcpy(outputAngles, IK_TABLE[bestIdx].angles, 6 * sizeof(int));
     outputAngles[0] = constrain(baseAngle, 0, 180);
-    outputAngles[5] = currentAngles[5];  // preserve gripper state
+    outputAngles[5] = currentAngles[5];
+    Serial.print("  Matched table entry: x="); Serial.print(IK_TABLE[bestIdx].x);
+    Serial.print(" y="); Serial.println(IK_TABLE[bestIdx].y);
     return true;
   }
   return false;
@@ -222,6 +224,7 @@ void processCommand(String raw) {
 
     moveServosSmooth(angles);
     Serial.println("DONE");
+    Serial1.println("DONE");
   }
 
   // ── PICK (from vision) ──
@@ -252,9 +255,12 @@ void processCommand(String raw) {
     float ry = coords.substring(sp1 + 1, sp2).toFloat();
     int   w  = (int)coords.substring(sp2 + 1, sp3).toFloat();
     int   h  = (int)coords.substring(sp3 + 1).toFloat();
+    float ry_ik = 1.0f;  // y fixed at 1.0 for IK lookup
 
     float ikx, iky;
-    toIKSpace(rx, ry, ikx, iky);
+    toIKSpace(rx, ry_ik, ikx, iky);
+
+    int baseAngle = computeBaseAngle(ikx, ry + 4.5f);  // use real y for angle
 
     Serial.print("PICK: class="); Serial.print(classStr);
     Serial.print(" received=("); Serial.print(rx); Serial.print(", "); Serial.print(ry); Serial.print(")");
@@ -266,7 +272,7 @@ void processCommand(String raw) {
       Serial.println(") outside reachable range");
     }
 
-    int baseAngle = computeBaseAngle(ikx, iky);
+   
     Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
 
     int angles[6];
@@ -278,6 +284,7 @@ void processCommand(String raw) {
     Serial.println("Moving to pick position...");
     moveServosSmooth(angles);
     Serial.println("DONE");
+    Serial1.println("DONE");
   }
 
   // ── GRIP ──
@@ -339,6 +346,7 @@ void setup() {
   Serial.println("=====================================");
 
   Wire.begin();
+  Serial1.begin(9600);
   initPCA9685();
 
   Serial.println("Moving to home position...");
