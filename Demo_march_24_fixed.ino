@@ -1,28 +1,14 @@
 /**
  * ItsyBitsy M4 Firmware - Robot Arm Controller with PCA9685
  * Serial Monitor Control Version
- * v2.0 - Fixes applied to original Demo_march_24.ino:
- *   1. Removed PROGMEM / memcpy_P  (ItsyBitsy M4 is ARM, not AVR)
- *   2. Replaced sscanf %f (unreliable on Arduino ARM) with toFloat()
- *   3. Added optional base angle parameter to MOVE command
- *   4. Added workspace boundary warning
- *
- * COMMANDS (type into Serial Monitor, press Enter):
- *   MOVE x y        -- Move arm (e.g. "MOVE 8.5 6.0")
- *   MOVE x y base   -- Move arm and set base angle (e.g. "MOVE 8.5 6.0 45")
- *                      x    = radial distance from base (cm)
- *                      y    = height (cm)
- *                      base = base servo angle in degrees (0-180, default 90)
- *   GRIP            -- Close gripper
- *   RELEASE         -- Open gripper
- *   HOME            -- Return to home position
- *   STATUS          -- Print current servo angles
- *   HELP            -- Print command list
+ * v2.1 - Added coordinate translation:
+ *   Incoming x=0 maps to IK table x=7 (arm base offset).
+ *   All received x values are shifted by +X_OFFSET before IK lookup.
  */
 
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
-#include "ik_table.h"   // Auto-generated from MATLAB
+#include "ik_table4.h"
 #include <math.h>
 
 // ─────────────────────────────────────────────
@@ -32,7 +18,6 @@
 #define PCA9685_ADDR 0x40
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
 
-// Servo channels on PCA9685
 const int CH_BASE        = 0;
 const int CH_SHOULDER    = 1;
 const int CH_ELBOW       = 2;
@@ -41,25 +26,49 @@ const int CH_GRIPPER_ROT = 4;
 const int CH_GRIPPER     = 5;
 const int CHANNELS[6]    = {CH_BASE, CH_SHOULDER, CH_ELBOW, CH_WRIST, CH_GRIPPER_ROT, CH_GRIPPER};
 
-// PWM calibration -- values from physical calibration table
-uint16_t servoMin[6] = {220, 360, 60, 180, 60, 100};
+uint16_t servoMin[6] = {130, 360, 60, 180, 60, 100};
 uint16_t servoMax[6] = {600, 600, 600, 600, 600, 600};
 #define SERVO_FREQ 50
 
-// Gripper positions
 const int GRIPPER_CLOSED = 20;
 const int GRIPPER_OPEN   = 90;
 
-// Home position
-const int HOME_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_OPEN};
+const int HOME_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
 
-// Workspace limits from ik_table.h
-const float WS_X_MIN =  4.0f;
-const float WS_X_MAX = 12.5f;
-const float WS_Y_MIN =  1.0f;
-const float WS_Y_MAX = 12.0f;
+// Workspace limits in IK table space (post-translation)
+const float WS_X_MIN =  7.2f;
+const float WS_X_MAX = 15.0f;
+const float WS_Y_MIN =  0.6f;
+const float WS_Y_MAX =  4.4f;
 
-// Current servo angles
+// ─────────────────────────────────────────────
+// COORDINATE TRANSLATION
+// ─────────────────────────────────────────────
+// The vision system outputs coordinates where x=0 is directly
+// in front of the arm base. The IK table was built with x=7
+// at the arm base (L4 = 7 inch offset). This constant shifts
+// all incoming x values into IK table space before lookup.
+//
+//   IK_x = received_x + X_OFFSET
+//   e.g.  received 0.0 → IK 7.0
+//         received 3.0 → IK 10.0
+//         received 6.5 → IK 13.5
+
+const float X_OFFSET = 7.0f;
+
+// Translate received (x, y) into IK table coordinate space
+void toIKSpace(float rx, float ry, float &ikx, float &iky) {
+  ikx = sqrt(pow(rx + X_OFFSET,2)+pow(ry,2));
+  iky = ry;   // y needs no translation
+}
+
+// Compute base angle as the horizontal sweep angle to the target.
+// Uses atan2(y, x) so the base rotates to point directly at the object.
+// +90 offset maps 0 deg (straight ahead) to servo centre (90 deg).
+int computeBaseAngle(float x, float y) {
+  return (int)round(atan2(y, x) * 180.0f / PI) +70;
+}
+
 int currentAngles[6];
 
 // ─────────────────────────────────────────────
@@ -86,8 +95,6 @@ void moveServos(const int angles[6]) {
   }
 }
 
-// All joints arrive at the same time by stepping at the rate of
-// the joint with the largest angular change.
 void moveServosSmooth(const int targetAngles[6], int stepDelay = 20) {
   int startAngles[6];
   memcpy(startAngles, currentAngles, sizeof(startAngles));
@@ -115,25 +122,15 @@ void moveServosSmooth(const int targetAngles[6], int stepDelay = 20) {
 // ─────────────────────────────────────────────
 // IK LOOKUP
 // ─────────────────────────────────────────────
-// Fix 1: Removed PROGMEM / memcpy_P.
-//   The ItsyBitsy M4 is ARM Cortex-M4. On ARM the compiler places
-//   const arrays in Flash (.rodata) automatically -- no PROGMEM needed.
-//   Direct array access replaces memcpy_P throughout.
-//
-// x = radial distance from base (cm)  -- matches table entry.x
-// y = height (cm)                     -- matches table entry.y
-// baseAngle = base servo angle (0-180 deg), passed in from the command
 
 bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
   int   bestIdx = -1;
   float minDist = 1e9f;
 
   for (int i = 0; i < IK_TABLE_SIZE; i++) {
-    // Fix 1: direct array access instead of memcpy_P
     float dx   = IK_TABLE[i].x - x;
     float dy   = IK_TABLE[i].y - y;
     float dist = dx*dx + dy*dy;
-
     if (dist < minDist) {
       minDist = dist;
       bestIdx = i;
@@ -141,10 +138,11 @@ bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
   }
 
   if (bestIdx >= 0) {
-    // Fix 1: direct array access instead of memcpy_P
     memcpy(outputAngles, IK_TABLE[bestIdx].angles, 6 * sizeof(int));
-    outputAngles[0] = constrain(baseAngle, 0, 180); // override base with user value
-    outputAngles[5] = GRIPPER_OPEN;                 // always approach with gripper open
+    outputAngles[0] = constrain(baseAngle, 0, 180);
+    outputAngles[5] = currentAngles[5];
+    Serial.print("  Matched table entry: x="); Serial.print(IK_TABLE[bestIdx].x);
+    Serial.print(" y="); Serial.println(IK_TABLE[bestIdx].y);
     return true;
   }
   return false;
@@ -167,25 +165,20 @@ void printStatus() {
 
 void printHelp() {
   Serial.println("-- Commands ------------------------");
-  Serial.println("  MOVE x y        -- Move (e.g. MOVE 8.5 6.0)");
-  Serial.println("  MOVE x y base   -- Move + set base angle (e.g. MOVE 8.5 6.0 45)");
-  Serial.println("                     x=radial dist (cm), y=height (cm), base=0-180 deg");
-  Serial.println("  GRIP            -- Close gripper");
-  Serial.println("  RELEASE         -- Open gripper");
-  Serial.println("  HOME            -- Return to home position");
-  Serial.println("  STATUS          -- Show current servo angles");
-  Serial.println("  HELP            -- Show this list");
+  Serial.println("  MOVE x y           -- Move, x=0 is arm base (e.g. MOVE 3.5 2.0)");
+  Serial.println("  PICK class x y w h -- From vision (e.g. PICK PLASTIC 3.5 2.0 100 80)");
+  Serial.println("  GRIP               -- Close gripper");
+  Serial.println("  RELEASE            -- Open gripper");
+  Serial.println("  HOME               -- Return to home position");
+  Serial.println("  STATUS             -- Show current servo angles");
+  Serial.println("  HELP               -- Show this list");
   Serial.println("------------------------------------");
+  Serial.println("  Note: x=0 maps to IK table x=7 (X_OFFSET=7)");
 }
 
 // ─────────────────────────────────────────────
 // COMMAND PROCESSING
 // ─────────────────────────────────────────────
-
-// Fix 2: Replaced sscanf with toFloat().
-//   sscanf with %f is unreliable on many Arduino/ARM boards -- it silently
-//   returns 0 parsed values even for valid float strings. Arduino's
-//   String::toFloat() is reliable and used here instead.
 
 void processCommand(String raw) {
   raw.trim();
@@ -194,77 +187,104 @@ void processCommand(String raw) {
   String upper = raw;
   upper.toUpperCase();
 
-  // ── MOVE x y [base] ──
+  // ── MOVE x y ──
   if (upper.startsWith("MOVE")) {
     String coords = raw.substring(4);
     coords.trim();
 
-    // Parse first token: x
     int sp1 = coords.indexOf(' ');
     if (sp1 == -1) {
-      Serial.println("ERROR: Usage is MOVE x y  (e.g. MOVE 8.5 6.0)");
+      Serial.println("ERROR: Usage is MOVE x y");
       return;
     }
-    String xStr = coords.substring(0, sp1);
-    coords = coords.substring(sp1 + 1);
-    coords.trim();
 
-    // Parse second token: y
-    int sp2 = coords.indexOf(' ');
-    String yStr, baseStr;
-    int baseAngle = 90; // default base angle
+    float rx = coords.substring(0, sp1).toFloat();
+    float ry = coords.substring(sp1 + 1).toFloat();
 
-    if (sp2 == -1) {
-      // Only two values provided -- use default base angle
-      yStr = coords;
-    } else {
-      // Three values provided -- third is base angle
-      yStr    = coords.substring(0, sp2);
-      baseStr = coords.substring(sp2 + 1);
-      baseStr.trim();
-      baseAngle = constrain((int)baseStr.toFloat(), 0, 180);
+    float ikx, iky;
+    toIKSpace(rx, ry, ikx, iky);
+
+    Serial.print("Received ("); Serial.print(rx); Serial.print(", "); Serial.print(ry); Serial.println(")");
+    Serial.print("IK space  ("); Serial.print(ikx); Serial.print(", "); Serial.print(iky); Serial.println(")");
+
+    if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
+      Serial.print("WARNING: IK coords (");
+      Serial.print(ikx); Serial.print(", "); Serial.print(iky);
+      Serial.println(") outside reachable range");
     }
 
-    float x = xStr.toFloat();
-    float y = yStr.toFloat();
-
-    // toFloat() returns 0.0 on failure; check that the string was actually '0'
-    if (x == 0.0f && xStr.charAt(0) != '0') { Serial.println("ERROR: 'x' is not a valid number"); return; }
-    if (y == 0.0f && yStr.charAt(0) != '0') { Serial.println("ERROR: 'y' is not a valid number"); return; }
-
-    // Fix 4: Workspace boundary warning
-    bool outOfRange = false;
-    if (x < WS_X_MIN || x > WS_X_MAX) {
-      Serial.print("WARNING: x="); Serial.print(x, 2);
-      Serial.print(" is outside table range ["); Serial.print(WS_X_MIN);
-      Serial.print(", "); Serial.print(WS_X_MAX); Serial.println("] -- using nearest point");
-      outOfRange = true;
-    }
-    if (y < WS_Y_MIN || y > WS_Y_MAX) {
-      Serial.print("WARNING: y="); Serial.print(y, 2);
-      Serial.print(" is outside table range ["); Serial.print(WS_Y_MIN);
-      Serial.print(", "); Serial.print(WS_Y_MAX); Serial.println("] -- using nearest point");
-      outOfRange = true;
-    }
-    if (outOfRange) Serial.println("  Result may be imprecise.");
-
-    Serial.print("Looking up IK for x="); Serial.print(x);
-    Serial.print(" y="); Serial.print(y);
-    Serial.print(" base="); Serial.println(baseAngle);
+    int baseAngle = computeBaseAngle(ikx, iky);
+    Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
 
     int angles[6];
-    if (!ikLookup(x, y, baseAngle, angles)) {
-      Serial.println("ERROR: No IK solution found for that position");
+    if (!ikLookup(ikx, iky, baseAngle, angles)) {
+      Serial.println("ERROR: No IK solution");
       return;
     }
 
-    Serial.print("  Base:     "); Serial.print(angles[0]); Serial.println(" deg");
-    Serial.print("  Shoulder: "); Serial.print(angles[1]); Serial.println(" deg");
-    Serial.print("  Elbow:    "); Serial.print(angles[2]); Serial.println(" deg");
-    Serial.print("  Wrist:    "); Serial.print(angles[3]); Serial.println(" deg");
-    Serial.println("Moving...");
     moveServosSmooth(angles);
     Serial.println("DONE");
+    Serial1.println("DONE");
+  }
+
+  // ── PICK (from vision) ──
+  else if (upper.startsWith("PICK")) {
+    String rest = raw.substring(4);
+    rest.trim();
+
+    int firstSpace = rest.indexOf(' ');
+    if (firstSpace == -1) {
+      Serial.println("ERROR: Invalid PICK format");
+      return;
+    }
+
+    String classStr = rest.substring(0, firstSpace);
+    String coords   = rest.substring(firstSpace + 1);
+    coords.trim();
+
+    int sp1 = coords.indexOf(' ');
+    int sp2 = coords.indexOf(' ', sp1 + 1);
+    int sp3 = coords.indexOf(' ', sp2 + 1);
+
+    if (sp1 == -1 || sp2 == -1 || sp3 == -1) {
+      Serial.println("ERROR: Need 4 numbers after class (x y w h)");
+      return;
+    }
+
+    float rx = coords.substring(0, sp1).toFloat();
+    float ry = coords.substring(sp1 + 1, sp2).toFloat();
+    int   w  = (int)coords.substring(sp2 + 1, sp3).toFloat();
+    int   h  = (int)coords.substring(sp3 + 1).toFloat();
+    float ry_ik = 1.5f;  // y fixed at 1.0 for IK lookup
+
+    float ikx, iky;
+    toIKSpace(rx, ry_ik, ikx, iky);
+
+    int baseAngle = computeBaseAngle(ikx, ry + 4.5f);  // use real y for angle
+
+    Serial.print("PICK: class="); Serial.print(classStr);
+    Serial.print(" received=("); Serial.print(rx); Serial.print(", "); Serial.print(ry); Serial.print(")");
+    Serial.print(" IK=("); Serial.print(ikx); Serial.print(", "); Serial.print(iky); Serial.println(")");
+
+    if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
+      Serial.print("WARNING: IK coords (");
+      Serial.print(ikx); Serial.print(", "); Serial.print(iky);
+      Serial.println(") outside reachable range");
+    }
+
+   
+    Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
+
+    int angles[6];
+    if (!ikLookup(ikx, iky, baseAngle, angles)) {
+      Serial.println("ERROR: No IK solution for that position");
+      return;
+    }
+
+    Serial.println("Moving to pick position...");
+    moveServosSmooth(angles);
+    Serial.println("DONE");
+    Serial1.println("DONE");
   }
 
   // ── GRIP ──
@@ -289,7 +309,7 @@ void processCommand(String raw) {
 
   // ── HOME ──
   else if (upper.startsWith("HOME")) {
-    Serial.println("Returning to home position...");
+    Serial.println("Returning home...");
     moveServosSmooth(HOME_ANGLES, 30);
     Serial.println("DONE");
   }
@@ -308,7 +328,7 @@ void processCommand(String raw) {
   else {
     Serial.print("ERROR: Unknown command \"");
     Serial.print(raw);
-    Serial.println("\" -- type HELP for command list");
+    Serial.println("\" -- type HELP");
   }
 }
 
@@ -321,11 +341,12 @@ void setup() {
   while (!Serial) delay(10);
 
   Serial.println("=====================================");
-  Serial.println("  Robot Arm -- Serial Monitor Mode   ");
-  Serial.println("             v2.0                    ");
+  Serial.println("  Robot Arm - Vision Ready  v2.1     ");
+  Serial.println("  x=0 → IK x=7  (X_OFFSET=7)        ");
   Serial.println("=====================================");
 
   Wire.begin();
+  Serial1.begin(9600);
   initPCA9685();
 
   Serial.println("Moving to home position...");
@@ -334,7 +355,6 @@ void setup() {
   delay(1000);
 
   Serial.println("Ready! Type HELP for commands.");
-  Serial.println();
 }
 
 void loop() {
