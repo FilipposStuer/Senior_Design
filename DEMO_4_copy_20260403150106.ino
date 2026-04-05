@@ -59,13 +59,13 @@ const float WS_Y_MAX =  4.4f;
 //         rx=3, ry=4   → IK_x = 5.0 + 7.0 = 12.0
 //         rx=6, ry=0   → IK_x = 6.0 + 7.0 = 13.0
 
-const float X_OFFSET = 7.0f;
+const float X_OFFSET = -7.5f;
 
 // Translate received (rx, ry) into IK table coordinate space.
 // ikx = Euclidean reach distance + base offset.
 // iky = vertical height, no translation needed.
 void toIKSpace(float rx, float ry, float &ikx, float &iky) {
-  ikx = sqrtf((rx+ X_OFFSET) * (rx+ X_OFFSET) + ry * ry) ;
+  ikx = sqrtf((rx + X_OFFSET) * (rx + X_OFFSET) + ry * ry);
   iky = ry;   // y (height) needs no translation
 }
 
@@ -136,7 +136,7 @@ bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
 
   for (int i = 0; i < IK_TABLE_SIZE; i++) {
     float dx   = IK_TABLE[i].x - x;
-    float dy   = IK_TABLE[i].y - y;
+    float dy   = IK_TABLE[i].y - 1;
     float dist = dx*dx + dy*dy;
     if (dist < minDist) {
       minDist = dist;
@@ -267,13 +267,13 @@ void processCommand(String raw) {
     // Use real rx, ry for Euclidean distance; iky fixed at 1.0 (floor height)
     float ikx, iky;
     toIKSpace(rx, ry, ikx, iky);
-    iky  = 1.0f;
+    iky = 1.0f;  // override height to floor pickup level
 
-    int baseAngle = computeBaseAngle(rx+X_OFFSET, ry);
+    int baseAngle = computeBaseAngle(rx, ry);
 
     Serial.print("PICK: class="); Serial.print(classStr);
     Serial.print(" received=("); Serial.print(rx); Serial.print(", "); Serial.print(ry); Serial.print(")");
-    Serial.print(" dist="); Serial.print(sqrtf(rx*rx + ry*ry));
+    Serial.print(" dist="); Serial.print(ikx - X_OFFSET);
     Serial.print(" IK=("); Serial.print(ikx); Serial.print(", "); Serial.print(iky); Serial.println(")");
 
     if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
