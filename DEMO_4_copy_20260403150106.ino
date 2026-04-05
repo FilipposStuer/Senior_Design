@@ -327,13 +327,6 @@ void processCommand(String raw) {
   else if (upper.startsWith("HOME")) {
     Serial.println("Returning home...");
     moveServosSmooth(HOME_ANGLES, 30);
-
-    Serial.println("Opening gripper...");
-    int gripAngles[6];
-    memcpy(gripAngles, currentAngles, sizeof(gripAngles));
-    gripAngles[5] = GRIPPER_OPEN;
-    moveServosSmooth(gripAngles, 10);
-
     Serial.println("DONE");
   }
 
