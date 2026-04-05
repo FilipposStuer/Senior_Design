@@ -59,7 +59,7 @@ const float WS_Y_MAX =  4.4f;
 //         rx=3, ry=4   → IK_x = 5.0 + 7.0 = 12.0
 //         rx=6, ry=0   → IK_x = 6.0 + 7.0 = 13.0
 
-const float X_OFFSET = -7.5f;
+const float X_OFFSET = 7.5f;
 
 // Translate received (rx, ry) into IK table coordinate space.
 // ikx = Euclidean reach distance + base offset.
@@ -292,6 +292,13 @@ void processCommand(String raw) {
 
     Serial.println("Moving to pick position...");
     moveServosSmooth(angles);
+
+    Serial.println("Closing gripper...");
+    int gripAngles[6];
+    memcpy(gripAngles, currentAngles, sizeof(gripAngles));
+    gripAngles[5] = GRIPPER_CLOSED;
+    moveServosSmooth(gripAngles, 10);
+
     Serial.println("DONE");
     Serial1.println("DONE");
   }
@@ -320,6 +327,13 @@ void processCommand(String raw) {
   else if (upper.startsWith("HOME")) {
     Serial.println("Returning home...");
     moveServosSmooth(HOME_ANGLES, 30);
+
+    Serial.println("Opening gripper...");
+    int gripAngles[6];
+    memcpy(gripAngles, currentAngles, sizeof(gripAngles));
+    gripAngles[5] = GRIPPER_OPEN;
+    moveServosSmooth(gripAngles, 10);
+
     Serial.println("DONE");
   }
 
