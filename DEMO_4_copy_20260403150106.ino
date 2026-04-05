@@ -294,10 +294,8 @@ void processCommand(String raw) {
     moveServosSmooth(angles);
 
     Serial.println("Closing gripper...");
-    int gripAngles[6];
-    memcpy(gripAngles, currentAngles, sizeof(gripAngles));
-    gripAngles[5] = GRIPPER_CLOSED;
-    moveServosSmooth(gripAngles, 10);
+    setServoAngle(CH_GRIPPER, GRIPPER_CLOSED);
+    currentAngles[5] = GRIPPER_CLOSED;
 
     Serial.println("DONE");
     Serial1.println("DONE");
