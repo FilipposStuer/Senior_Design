@@ -1,9 +1,11 @@
 /**
  * ItsyBitsy M4 Firmware - Robot Arm Controller with PCA9685
  * Serial Monitor Control Version
- * v2.1 - Added coordinate translation:
- *   Incoming x=0 maps to IK table x=7 (arm base offset).
- *   All received x values are shifted by +X_OFFSET before IK lookup.
+ * v2.2 - IK x-axis is now the Euclidean distance from the arm base
+ *        to the target (sqrt(rx² + ry²)), shifted by X_OFFSET.
+ *        The base servo still uses atan2(ry, rx) for rotation.
+ *        Previously: IK_x = rx + X_OFFSET
+ *        Now:        IK_x = sqrt(rx² + ry²) + X_OFFSET
  */
 
 #include <Wire.h>
@@ -44,29 +46,34 @@ const float WS_Y_MAX =  4.4f;
 // ─────────────────────────────────────────────
 // COORDINATE TRANSLATION
 // ─────────────────────────────────────────────
-// The vision system outputs coordinates where x=0 is directly
-// in front of the arm base. The IK table was built with x=7
-// at the arm base (L4 = 7 inch offset). This constant shifts
-// all incoming x values into IK table space before lookup.
+// The vision system outputs (rx, ry) where rx is horizontal distance
+// and ry is lateral offset from centre. The IK table's x-axis encodes
+// radial reach from the arm base. We therefore feed it the Euclidean
+// distance to the target, shifted by X_OFFSET so that a target directly
+// in front at distance 0 maps to IK x=7 (the arm's physical base offset).
 //
-//   IK_x = received_x + X_OFFSET
-//   e.g.  received 0.0 → IK 7.0
-//         received 3.0 → IK 10.0
-//         received 6.5 → IK 13.5
+//   IK_x = sqrt(rx² + ry²) + X_OFFSET
+//   IK_y = vertical height (unchanged)
+//
+//   e.g.  rx=0, ry=0   → IK_x = 0.0 + 7.0 = 7.0
+//         rx=3, ry=4   → IK_x = 5.0 + 7.0 = 12.0
+//         rx=6, ry=0   → IK_x = 6.0 + 7.0 = 13.0
 
 const float X_OFFSET = 7.0f;
 
-// Translate received (x, y) into IK table coordinate space
+// Translate received (rx, ry) into IK table coordinate space.
+// ikx = Euclidean reach distance + base offset.
+// iky = vertical height, no translation needed.
 void toIKSpace(float rx, float ry, float &ikx, float &iky) {
-  ikx = rx + X_OFFSET;
-  iky = ry;   // y needs no translation
+  ikx = sqrtf((rx+ X_OFFSET) * (rx+ X_OFFSET) + ry * ry) ;
+  iky = ry;   // y (height) needs no translation
 }
 
 // Compute base angle as the horizontal sweep angle to the target.
-// Uses atan2(y, x) so the base rotates to point directly at the object.
-// +90 offset maps 0 deg (straight ahead) to servo centre (90 deg).
-int computeBaseAngle(float x, float y) {
-  return (int)round(atan2(y, x) * 180.0f / PI) + 70;
+// Uses atan2(ry, rx) so the base rotates to point directly at the object.
+// +70 offset maps 0 deg (straight ahead) to servo centre.
+int computeBaseAngle(float rx, float ry) {
+  return (int)round(atan2f(ry, rx) * 180.0f / PI) + 70;
 }
 
 int currentAngles[6];
@@ -165,7 +172,7 @@ void printStatus() {
 
 void printHelp() {
   Serial.println("-- Commands ------------------------");
-  Serial.println("  MOVE x y           -- Move, x=0 is arm base (e.g. MOVE 3.5 2.0)");
+  Serial.println("  MOVE x y           -- Move to position (e.g. MOVE 3.5 2.0)");
   Serial.println("  PICK class x y w h -- From vision (e.g. PICK PLASTIC 3.5 2.0 100 80)");
   Serial.println("  GRIP               -- Close gripper");
   Serial.println("  RELEASE            -- Open gripper");
@@ -173,7 +180,7 @@ void printHelp() {
   Serial.println("  STATUS             -- Show current servo angles");
   Serial.println("  HELP               -- Show this list");
   Serial.println("------------------------------------");
-  Serial.println("  Note: x=0 maps to IK table x=7 (X_OFFSET=7)");
+  Serial.println("  Note: IK_x = sqrt(rx^2 + ry^2) + X_OFFSET(7)");
 }
 
 // ─────────────────────────────────────────────
@@ -204,7 +211,8 @@ void processCommand(String raw) {
     float ikx, iky;
     toIKSpace(rx, ry, ikx, iky);
 
-    Serial.print("Received ("); Serial.print(rx); Serial.print(", "); Serial.print(ry); Serial.println(")");
+    Serial.print("Received  ("); Serial.print(rx); Serial.print(", "); Serial.print(ry); Serial.println(")");
+    Serial.print("Distance  "); Serial.print(sqrtf(rx*rx + ry*ry)); Serial.println(" in");
     Serial.print("IK space  ("); Serial.print(ikx); Serial.print(", "); Serial.print(iky); Serial.println(")");
 
     if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
@@ -213,7 +221,7 @@ void processCommand(String raw) {
       Serial.println(") outside reachable range");
     }
 
-    int baseAngle = computeBaseAngle(ikx, iky);
+    int baseAngle = computeBaseAngle(rx, ry);
     Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
 
     int angles[6];
@@ -255,15 +263,17 @@ void processCommand(String raw) {
     float ry = coords.substring(sp1 + 1, sp2).toFloat();
     int   w  = (int)coords.substring(sp2 + 1, sp3).toFloat();
     int   h  = (int)coords.substring(sp3 + 1).toFloat();
-    float ry_ik = 1.0f;  // y fixed at 1.0 for IK lookup
 
+    // Use real rx, ry for Euclidean distance; iky fixed at 1.0 (floor height)
     float ikx, iky;
-    toIKSpace(rx, ry_ik, ikx, iky);
+    toIKSpace(rx, ry, ikx, iky);
+    iky  = 1.0f;
 
-    int baseAngle = computeBaseAngle(ikx, ry + 4.5f);  // use real y for angle
+    int baseAngle = computeBaseAngle(rx+X_OFFSET, ry);
 
     Serial.print("PICK: class="); Serial.print(classStr);
     Serial.print(" received=("); Serial.print(rx); Serial.print(", "); Serial.print(ry); Serial.print(")");
+    Serial.print(" dist="); Serial.print(sqrtf(rx*rx + ry*ry));
     Serial.print(" IK=("); Serial.print(ikx); Serial.print(", "); Serial.print(iky); Serial.println(")");
 
     if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
@@ -272,7 +282,6 @@ void processCommand(String raw) {
       Serial.println(") outside reachable range");
     }
 
-   
     Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
 
     int angles[6];
@@ -341,8 +350,8 @@ void setup() {
   while (!Serial) delay(10);
 
   Serial.println("=====================================");
-  Serial.println("  Robot Arm - Vision Ready  v2.1     ");
-  Serial.println("  x=0 → IK x=7  (X_OFFSET=7)        ");
+  Serial.println("  Robot Arm - Vision Ready  v2.2     ");
+  Serial.println("  IK_x = sqrt(rx^2+ry^2) + X_OFFSET  ");
   Serial.println("=====================================");
 
   Wire.begin();
