@@ -32,8 +32,8 @@ uint16_t servoMin[6] = {130, 360, 60, 180, 60, 100};
 uint16_t servoMax[6] = {600, 600, 600, 600, 600, 600};
 #define SERVO_FREQ 50
 
-const int GRIPPER_CLOSED = 20;
-const int GRIPPER_OPEN   = 90;
+const int GRIPPER_CLOSED = 90;
+const int GRIPPER_OPEN   = 20;
 
 const int HOME_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
 
@@ -59,7 +59,7 @@ const float WS_Y_MAX =  4.4f;
 //         rx=3, ry=4   → IK_x = 5.0 + 7.0 = 12.0
 //         rx=6, ry=0   → IK_x = 6.0 + 7.0 = 13.0
 
-const float X_OFFSET = 7.5f;
+const float X_OFFSET = -7.5f;
 
 // Translate received (rx, ry) into IK table coordinate space.
 // ikx = Euclidean reach distance + base offset.
@@ -264,10 +264,9 @@ void processCommand(String raw) {
     int   w  = (int)coords.substring(sp2 + 1, sp3).toFloat();
     int   h  = (int)coords.substring(sp3 + 1).toFloat();
 
-    // Use real rx, ry for Euclidean distance; iky fixed at 1.0 (floor height)
     float ikx, iky;
     toIKSpace(rx, ry, ikx, iky);
-    iky = 1.0f;  // override height to floor pickup level
+    iky = 1.0f;
 
     int baseAngle = computeBaseAngle(rx, ry);
 
@@ -289,6 +288,10 @@ void processCommand(String raw) {
       Serial.println("ERROR: No IK solution for that position");
       return;
     }
+
+    Serial.println("Opening gripper...");
+    setServoAngle(CH_GRIPPER, GRIPPER_OPEN);
+    currentAngles[5] = GRIPPER_OPEN;
 
     Serial.println("Moving to pick position...");
     moveServosSmooth(angles);
