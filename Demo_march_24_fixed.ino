@@ -41,7 +41,7 @@ const int HOME_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
 const float WS_X_MIN =  7.2f;
 const float WS_X_MAX = 15.0f;
 const float WS_Y_MIN =  0.6f;
-const float WS_Y_MAX =  4.4f;
+const float WS_Y_MAX =  8.4f;
 
 // ─────────────────────────────────────────────
 // COORDINATE TRANSLATION
@@ -65,8 +65,8 @@ const float X_OFFSET = 7.5f;
 // ikx = Euclidean reach distance + base offset.
 // iky = vertical height, no translation needed.
 void toIKSpace(float rx, float ry, float &ikx, float &iky) {
-  ikx = sqrtf((rx + X_OFFSET) * (rx + X_OFFSET) + ry * ry);
-  iky = 1.0;   // y (height) needs no translation
+  ikx = sqrtf((rx+3) * (rx+3) + (ry) * (ry))+2.0;
+  iky = 3.0;   // y (height) needs no translation
 }
 
 // Compute base angle as the horizontal sweep angle to the target.
@@ -273,7 +273,8 @@ void processCommand(String raw) {
     // Use real rx, ry for Euclidean distance; iky fixed at 1.0 (floor height)
     float ikx, iky;
     toIKSpace(rx, ry, ikx, iky);
-    iky = 1.0f;  // override height to floor pickup level
+    
+    iky = 3.0f;  // override height to floor pickup level
 
     int baseAngle = computeBaseAngle(rx, ry);
 
@@ -297,6 +298,8 @@ void processCommand(String raw) {
     }
 
     Serial.println("Moving to pick position...");
+    moveServosSmooth(angles);
+    angles[5]=20;
     moveServosSmooth(angles);
     Serial.println("DONE");
     Serial1.println("DONE");
@@ -325,7 +328,15 @@ void processCommand(String raw) {
   // ── HOME ──
   else if (upper.startsWith("HOME")) {
     Serial.println("Returning home...");
-    moveServosSmooth(HOME_ANGLES, 30);
+    int angles[6];
+    angles[0]=90;
+    angles[1]=90;
+    angles[2]=90;
+    angles[3]=90;
+    angles[4]=90;
+    angles[5]=90;
+
+    moveServosSmooth(angles, 30);
     Serial.println("DONE");
   }
 

@@ -45,9 +45,9 @@ WS_Y_MIN, WS_Y_MAX = -999.0, 999.0     # Min and max Y (cm) – effectively no l
 
 # Drop‑off positions for each waste class (x, y) in real‑world cm (currently unused, kept for future)
 DROP_POSITIONS = {
-    "plastic":   (-5.0, 1.0),
-    "paper":     ( 0.0, 1.0),
-    "cardboard": ( 5.0, 1.0),
+    "plastic":   (0.0, 4.0+1/8),
+    "paper":     ( 0.0, 14+3/8),
+    "cardboard": ( 16+2/8, 3.5),
 }
 
 # ----------------------------------------------------------------------
@@ -397,7 +397,7 @@ def main():
                     cx, cy = det["center"]   # Pixel center of the object
                     w, h = det["bbox"]       # Bounding box width and height
                     # Convert pixel to real‑world coordinates (note swapped order: y_cm, x_cm)
-                    y_cm, x_cm = pixel_to_cm(cx, cy, H)
+                    x_cm, y_cm = pixel_to_cm(cx, cy, H)
 
                     logger.info(
                         f"Picking {det['class_name']} at "
