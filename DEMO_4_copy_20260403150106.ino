@@ -1,11 +1,9 @@
 /**
  * ItsyBitsy M4 Firmware - Robot Arm Controller with PCA9685
  * Serial Monitor Control Version
- * v2.2 - IK x-axis is now the Euclidean distance from the arm base
- *        to the target (sqrt(rx² + ry²)), shifted by X_OFFSET.
- *        The base servo still uses atan2(ry, rx) for rotation.
- *        Previously: IK_x = rx + X_OFFSET
- *        Now:        IK_x = sqrt(rx² + ry²) + X_OFFSET
+ * v2.3 - GARBAGE class in PICK command now triggers a drop sequence:
+ *        arm moves to fixed bin position, opens gripper, returns HOME.
+ *        Bin position: rx=0, ry=14.375 (14+3/8), iky=7.0 (elevated drop)
  */
 
 #include <Wire.h>
@@ -32,8 +30,8 @@ uint16_t servoMin[6] = {130, 360, 60, 180, 60, 100};
 uint16_t servoMax[6] = {600, 600, 600, 600, 600, 600};
 #define SERVO_FREQ 50
 
-const int GRIPPER_CLOSED = 90;
-const int GRIPPER_OPEN   = 20;
+const int GRIPPER_CLOSED = 20;
+const int GRIPPER_OPEN   = 90;
 
 const int HOME_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
 
@@ -41,39 +39,29 @@ const int HOME_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
 const float WS_X_MIN =  7.2f;
 const float WS_X_MAX = 15.0f;
 const float WS_Y_MIN =  0.6f;
-const float WS_Y_MAX =  4.4f;
+const float WS_Y_MAX =  8.4f;
+
+// ─────────────────────────────────────────────
+// PLASTIC BIN POSITION (fixed, robot space)
+// ─────────────────────────────────────────────
+// rx=0, ry=14+3/8 inches, drop height iky=7.0
+const float BIN_RX  =  0.0f;
+const float BIN_RY  = 14.375f;   // 14 + 3/8
+const float BIN_IKY =  7.0f;     // elevated drop height
 
 // ─────────────────────────────────────────────
 // COORDINATE TRANSLATION
 // ─────────────────────────────────────────────
-// The vision system outputs (rx, ry) where rx is horizontal distance
-// and ry is lateral offset from centre. The IK table's x-axis encodes
-// radial reach from the arm base. We therefore feed it the Euclidean
-// distance to the target, shifted by X_OFFSET so that a target directly
-// in front at distance 0 maps to IK x=7 (the arm's physical base offset).
-//
-//   IK_x = sqrt(rx² + ry²) + X_OFFSET
-//   IK_y = vertical height (unchanged)
-//
-//   e.g.  rx=0, ry=0   → IK_x = 0.0 + 7.0 = 7.0
-//         rx=3, ry=4   → IK_x = 5.0 + 7.0 = 12.0
-//         rx=6, ry=0   → IK_x = 6.0 + 7.0 = 13.0
 
-const float X_OFFSET = -7.5f;
+const float X_OFFSET = 7.5f;
 
-// Translate received (rx, ry) into IK table coordinate space.
-// ikx = Euclidean reach distance + base offset.
-// iky = vertical height, no translation needed.
 void toIKSpace(float rx, float ry, float &ikx, float &iky) {
-  ikx = sqrtf((rx + X_OFFSET) * (rx + X_OFFSET) + ry * ry);
-  iky = ry;   // y (height) needs no translation
+  ikx = sqrtf((rx+3) * (rx+3) + (ry) * (ry)) + 2.0;
+  iky = 3.0;   // default floor height; callers may override
 }
 
-// Compute base angle as the horizontal sweep angle to the target.
-// Uses atan2(ry, rx) so the base rotates to point directly at the object.
-// +70 offset maps 0 deg (straight ahead) to servo centre.
 int computeBaseAngle(float rx, float ry) {
-  return (int)round(atan2f(ry, rx) * 180.0f / PI) + 70;
+  return (int)round(atan2f(ry, X_OFFSET - rx) * 180.0f / PI);
 }
 
 int currentAngles[6];
@@ -136,7 +124,7 @@ bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
 
   for (int i = 0; i < IK_TABLE_SIZE; i++) {
     float dx   = IK_TABLE[i].x - x;
-    float dy   = IK_TABLE[i].y - 1;
+    float dy   = IK_TABLE[i].y - y;   // match against actual y, not hardcoded 1
     float dist = dx*dx + dy*dy;
     if (dist < minDist) {
       minDist = dist;
@@ -153,6 +141,57 @@ bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
     return true;
   }
   return false;
+}
+
+// ─────────────────────────────────────────────
+// DROP TO PLASTIC BIN
+// ─────────────────────────────────────────────
+// Moves arm to the fixed plastic bin position at elevated height,
+// opens the gripper to release the held object, then returns HOME.
+
+void dropToPlasticBin() {
+  float ikx, iky;
+  toIKSpace(BIN_RX, BIN_RY, ikx, iky);
+  iky = BIN_IKY;   // override to elevated drop height
+
+  int baseAngle = computeBaseAngle(BIN_RX, BIN_RY);
+
+  Serial.print("BIN position: rx="); Serial.print(BIN_RX);
+  Serial.print(" ry="); Serial.print(BIN_RY);
+  Serial.print(" -> IK=("); Serial.print(ikx);
+  Serial.print(", "); Serial.print(iky); Serial.println(")");
+  Serial.print("Bin base angle: "); Serial.print(baseAngle); Serial.println(" deg");
+
+  if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
+    Serial.print("WARNING: Bin IK coords (");
+    Serial.print(ikx); Serial.print(", "); Serial.print(iky);
+    Serial.println(") outside reachable range — check BIN_RX/BIN_RY/BIN_IKY");
+  }
+
+  int angles[6];
+  if (!ikLookup(ikx, iky, baseAngle, angles)) {
+    Serial.println("ERROR: No IK solution for bin position");
+    return;
+  }
+
+  // Keep gripper closed while travelling to bin
+  angles[5] = GRIPPER_CLOSED;
+
+  Serial.println("Moving to bin...");
+  moveServosSmooth(angles);
+
+  // Release object
+  Serial.println("Releasing into bin...");
+  angles[5] = GRIPPER_OPEN;
+  moveServosSmooth(angles, 10);
+
+  // Return home
+  Serial.println("Returning home...");
+  int home[6] = {90, 90, 90, 90, 90, 90};
+  moveServosSmooth(home, 30);
+
+  Serial.println("DONE");
+  Serial1.println("DONE");
 }
 
 // ─────────────────────────────────────────────
@@ -174,13 +213,15 @@ void printHelp() {
   Serial.println("-- Commands ------------------------");
   Serial.println("  MOVE x y           -- Move to position (e.g. MOVE 3.5 2.0)");
   Serial.println("  PICK class x y w h -- From vision (e.g. PICK PLASTIC 3.5 2.0 100 80)");
+  Serial.println("                        class=GARBAGE -> drop to fixed bin, then HOME");
   Serial.println("  GRIP               -- Close gripper");
   Serial.println("  RELEASE            -- Open gripper");
   Serial.println("  HOME               -- Return to home position");
   Serial.println("  STATUS             -- Show current servo angles");
   Serial.println("  HELP               -- Show this list");
   Serial.println("------------------------------------");
-  Serial.println("  Note: IK_x = sqrt(rx^2 + ry^2) + X_OFFSET(7)");
+  Serial.println("  Note: IK_x = sqrt((rx+3)^2 + ry^2) + 2.0");
+  Serial.println("  Bin:  rx=0  ry=14.375  iky=7.0 (elevated)");
 }
 
 // ─────────────────────────────────────────────
@@ -247,7 +288,61 @@ void processCommand(String raw) {
     }
 
     String classStr = rest.substring(0, firstSpace);
-    String coords   = rest.substring(firstSpace + 1);
+    String upperClass = classStr;
+    upperClass.toUpperCase();
+
+    // ── GARBAGE: pick up from vision coords, then drop to bin ──
+    if (upperClass == "GARBAGE") {
+      String coords = rest.substring(firstSpace + 1);
+      coords.trim();
+
+      int sp1 = coords.indexOf(' ');
+      int sp2 = coords.indexOf(' ', sp1 + 1);
+      int sp3 = coords.indexOf(' ', sp2 + 1);
+
+      if (sp1 == -1 || sp2 == -1 || sp3 == -1) {
+        Serial.println("ERROR: Need 4 numbers after class (x y w h)");
+        return;
+      }
+
+      float rx = coords.substring(0, sp1).toFloat();
+      float ry = coords.substring(sp1 + 1, sp2).toFloat();
+
+      float ikx, iky;
+      toIKSpace(rx, ry, ikx, iky);
+      iky = 3.0f;  // floor pickup height
+
+      int baseAngle = computeBaseAngle(rx, ry);
+
+      Serial.print("GARBAGE pick: received=("); Serial.print(rx);
+      Serial.print(", "); Serial.print(ry); Serial.print(")");
+      Serial.print(" IK=("); Serial.print(ikx); Serial.print(", "); Serial.print(iky); Serial.println(")");
+      Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
+
+      if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
+        Serial.print("WARNING: IK coords (");
+        Serial.print(ikx); Serial.print(", "); Serial.print(iky);
+        Serial.println(") outside reachable range");
+      }
+
+      int angles[6];
+      if (!ikLookup(ikx, iky, baseAngle, angles)) {
+        Serial.println("ERROR: No IK solution for garbage position");
+        return;
+      }
+
+      Serial.println("Moving to pick position...");
+      moveServosSmooth(angles);
+      angles[5] = GRIPPER_CLOSED;
+      moveServosSmooth(angles, 10);
+
+      Serial.println("Dropping to plastic bin...");
+      dropToPlasticBin();
+      return;
+    }
+
+    // ── All other classes: normal pick sequence ──
+    String coords = rest.substring(firstSpace + 1);
     coords.trim();
 
     int sp1 = coords.indexOf(' ');
@@ -266,7 +361,7 @@ void processCommand(String raw) {
 
     float ikx, iky;
     toIKSpace(rx, ry, ikx, iky);
-    iky = 1.0f;
+    iky = 3.0f;  // floor pickup height
 
     int baseAngle = computeBaseAngle(rx, ry);
 
@@ -289,17 +384,10 @@ void processCommand(String raw) {
       return;
     }
 
-    Serial.println("Opening gripper...");
-    setServoAngle(CH_GRIPPER, GRIPPER_OPEN);
-    currentAngles[5] = GRIPPER_OPEN;
-
     Serial.println("Moving to pick position...");
     moveServosSmooth(angles);
-
-    Serial.println("Closing gripper...");
-    setServoAngle(CH_GRIPPER, GRIPPER_CLOSED);
-    currentAngles[5] = GRIPPER_CLOSED;
-
+    angles[5] = 20;
+    moveServosSmooth(angles);
     Serial.println("DONE");
     Serial1.println("DONE");
   }
@@ -327,7 +415,8 @@ void processCommand(String raw) {
   // ── HOME ──
   else if (upper.startsWith("HOME")) {
     Serial.println("Returning home...");
-    moveServosSmooth(HOME_ANGLES, 30);
+    int angles[6] = {90, 90, 90, 90, 90, 90};
+    moveServosSmooth(angles, 30);
     Serial.println("DONE");
   }
 
@@ -358,8 +447,8 @@ void setup() {
   while (!Serial) delay(10);
 
   Serial.println("=====================================");
-  Serial.println("  Robot Arm - Vision Ready  v2.2     ");
-  Serial.println("  IK_x = sqrt(rx^2+ry^2) + X_OFFSET  ");
+  Serial.println("  Robot Arm - Vision Ready  v2.3     ");
+  Serial.println("  GARBAGE class -> bin drop + HOME   ");
   Serial.println("=====================================");
 
   Wire.begin();
