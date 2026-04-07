@@ -10,8 +10,7 @@ to pick and sort the items.
 # IMPORT LIBRARIES
 # ----------------------------------------------------------------------
 
-# Enables forward references in type hints (not heavily used here)
-from __future__ import annotations
+from __future__ import annotations    # Enables forward references in type hints
 
 import cv2                     # OpenCV for camera capture, image processing, drawing
 import serial                  # PySerial for serial communication with Arduino
@@ -28,7 +27,7 @@ from ultralytics import YOLO   # YOLO object detection model
 MODEL_PATH = "best.pt"                 # Path to the trained YOLO model file
 HOMOGRAPHY_PATH = "homography.npy"     # Path to the saved homography matrix (from calibration)
 CONFIDENCE_THRESHOLD = 0.25            # Minimum confidence score to consider a detection
-CAMERA_INDEX = 0                       # Camera device index (0 = built‑in, 1 = USB)
+CAMERA_INDEX = 0                       # Camera device index (0 = built-in, 1 = USB)
 FRAME_WIDTH, FRAME_HEIGHT = 640, 480   # Camera resolution (width, height)
 SERIAL_PORT = "COM5"                   # Serial port where Arduino is connected
 SERIAL_BAUDRATE = 9600                 # Baud rate (must match Arduino firmware)
@@ -36,19 +35,12 @@ SERIAL_TIMEOUT = 30                    # Default timeout in seconds for serial r
 
 DETECT_CONFIRM_FRAMES = 3              # Number of consecutive frames with the same detection to confirm
 DISAPPEAR_THRESHOLD = 5                # How many frames the object must be missing before pick is considered complete
-PICK_TIMEOUT = 20                      # Seconds after which a stuck pick operation is aborted
+PICK_TIMEOUT = 60                      # Seconds after which a stuck pick operation is aborted
 IDLE_HOME_TIMEOUT = 15                 # Seconds with no detection before sending HOME command
 
-# Workspace check disabled – arm will attempt any position (Arduino handles out‑of‑range)
-WS_X_MIN, WS_X_MAX = -999.0, 999.0     # Min and max X (cm) – effectively no limit
-WS_Y_MIN, WS_Y_MAX = -999.0, 999.0     # Min and max Y (cm) – effectively no limit
-
-# Drop‑off positions for each waste class (x, y) in real‑world cm (currently unused, kept for future)
-DROP_POSITIONS = {
-    "plastic":   (0.0, 4.0+1/8),
-    "paper":     ( 0.0, 14+3/8),
-    "cardboard": ( 16+2/8, 3.5),
-}
+# Workspace check disabled - arm will attempt any position (Arduino handles out-of-range)
+WS_X_MIN, WS_X_MAX = -999.0, 999.0    # Min and max X (cm) - effectively no limit
+WS_Y_MIN, WS_Y_MAX = -999.0, 999.0    # Min and max Y (cm) - effectively no limit
 
 # ----------------------------------------------------------------------
 # WASTE CLASS MAPPING (from YOLO class IDs)
@@ -57,12 +49,12 @@ DROP_POSITIONS = {
 #   0: biodegradable, 1: cardboard, 2: glass, 3: metal, 4: paper, 5: plastic
 # Only cardboard (1), paper (4), and plastic (5) are considered recyclable.
 WASTE_CLASSES = {
-    1: {"name": "cardboard", "recycle": True},   # cardboard – recyclable
-    4: {"name": "paper",     "recycle": True},   # paper – recyclable
-    5: {"name": "plastic",   "recycle": True},   # plastic – recyclable
-    0: {"name": "biodegradable", "recycle": False},  # not recyclable
-    2: {"name": "glass",         "recycle": False},  # not recyclable
-    3: {"name": "metal",         "recycle": False},  # not recyclable
+    1: {"name": "cardboard", "recycle": True},        # cardboard - recyclable
+    4: {"name": "paper",     "recycle": True},        # paper - recyclable
+    5: {"name": "plastic",   "recycle": True},        # plastic - recyclable
+    0: {"name": "biodegradable", "recycle": False},   # not recyclable
+    2: {"name": "glass",         "recycle": False},   # not recyclable
+    3: {"name": "metal",         "recycle": False},   # not recyclable
 }
 
 # Colors for drawing bounding boxes (BGR format)
@@ -74,12 +66,27 @@ CLASS_COLORS = {
 }
 
 # ----------------------------------------------------------------------
+# CAMERA EXCLUSION ZONES
+# ----------------------------------------------------------------------
+# Rectangular regions (in pixels) where the camera will NOT detect objects.
+# Any detection whose center falls inside one of these rectangles is ignored.
+# This prevents the arm from trying to pick objects out of the bins or
+# misidentifying parts of the robot arm as objects.
+# Format: (x1, y1, x2, y2) - top-left and bottom-right corners in pixels.
+# Zones are drawn on screen in red so the operator can verify coverage.
+EXCLUSION_ZONES = [
+    (  0,   0, 120, 480),   # Left strip (3/4 of original) - plastic + paper bins / Punto 1 & 3 side
+    (520,   0, 640, 480),   # Right strip (3/4 of original) - cardboard bin side
+    (  0,   0, 640, 100),   # Top strip - robot arm base and body
+]
+
+# ----------------------------------------------------------------------
 # HOMOGRAPHY FUNCTIONS
 # ----------------------------------------------------------------------
 def load_homography(path):
     """Load a homography matrix from a .npy file."""
     try:
-        H = np.load(path)                         # Load the numpy array
+        H = np.load(path)                          # Load the numpy array from disk
         logging.info(f"Homography loaded from '{path}'")
         return H
     except Exception as e:
@@ -88,20 +95,44 @@ def load_homography(path):
 
 def pixel_to_cm(cx, cy, H):
     """
-    Convert pixel coordinates (cx, cy) to real‑world (x_cm, y_cm) using the homography matrix H.
-    The homography maps pixels to real‑world coordinates in centimeters.
+    Convert pixel coordinates (cx, cy) to real-world (x_cm, y_cm)
+    using the homography matrix H.
     """
-    # Create a 3D point (1x1x2) required by cv2.perspectiveTransform
-    pt = np.array([[[float(cx), float(cy)]]], dtype=np.float32)
-    # Apply the homography transformation
-    result = cv2.perspectiveTransform(pt, H)[0][0]
-    x_cm = float(result[0])    # real‑world X coordinate (forward direction)
-    y_cm = float(result[1])    # real‑world Y coordinate (lateral direction)
+    pt = np.array([[[float(cx), float(cy)]]], dtype=np.float32)   # Shape required by OpenCV
+    result = cv2.perspectiveTransform(pt, H)[0][0]                 # Apply homography
+    x_cm = float(result[0])    # Real-world X coordinate (forward direction)
+    y_cm = float(result[1])    # Real-world Y coordinate (lateral direction)
     return x_cm, y_cm
 
 def in_workspace(x_cm, y_cm):
-    """Check if the real‑world coordinates are within the robot's workspace (always returns True)."""
-    return True   # Workspace check disabled – Arduino will handle out‑of‑range gracefully
+    """Check if the real-world coordinates are within the robot workspace (always True)."""
+    return True   # Workspace check disabled - Arduino handles out-of-range gracefully
+
+# ----------------------------------------------------------------------
+# EXCLUSION ZONE HELPERS
+# ----------------------------------------------------------------------
+def point_in_exclusion_zone(cx, cy):
+    """
+    Return True if pixel point (cx, cy) falls inside any exclusion zone.
+    Used by detect_best() to skip detections over bin or arm areas.
+    """
+    for (x1, y1, x2, y2) in EXCLUSION_ZONES:   # Check every defined zone
+        if x1 <= cx <= x2 and y1 <= cy <= y2:   # Point is inside this rectangle
+            return True
+    return False   # Point is outside all zones - detection is valid
+
+def draw_exclusion_zones(frame):
+    """
+    Draw all exclusion zones on the frame as semi-transparent red rectangles.
+    Helps the operator verify which areas of the camera view are masked.
+    """
+    overlay = frame.copy()                            # Copy frame for blending
+    for (x1, y1, x2, y2) in EXCLUSION_ZONES:
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 200), -1)    # Filled red on overlay
+        cv2.rectangle(frame,   (x1, y1), (x2, y2), (0, 0, 255),  2)    # Red border on frame
+        cv2.putText(frame, "EXCLUSION", (x1 + 4, y1 + 18),              # Label on frame
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 1)
+    cv2.addWeighted(overlay, 0.25, frame, 0.75, 0, frame)   # Blend at 25% opacity
 
 # ----------------------------------------------------------------------
 # SERIAL COMMUNICATION CLASS
@@ -134,7 +165,7 @@ class ArmComm:
 
     def send(self, cmd):
         """Send a raw command string over serial (automatically appends a newline)."""
-        if not self.connected:
+        if not self.connected:    # Do nothing if not connected
             return False
         try:
             self.conn.write((cmd + "\n").encode())   # Convert to bytes and send
@@ -152,37 +183,81 @@ class ArmComm:
         return self.send(f"MOVE {x_cm:.2f} {y_cm:.2f}")
 
     def grip(self):
-        """Send GRIP command – in the firmware this normally closes the gripper."""
+        """Send GRIP command - physically opens the gripper (inverted wiring)."""
         return self.send("GRIP")
 
     def release(self):
-        """Send RELEASE command – in the firmware this normally opens the gripper."""
+        """Send RELEASE command - physically closes the gripper (inverted wiring)."""
         return self.send("RELEASE")
 
     def home(self):
-        """Send HOME command – returns the arm to its home position."""
+        """Send HOME command - returns the arm to its home position."""
         return self.send("HOME")
+
+    def drop(self, class_name):
+        """
+        Send a DROP command to Arduino with the detected waste class name.
+        Arduino is responsible for all movement to the correct bin, releasing
+        the object, and returning home. Python only tells it what was picked.
+        Example serial output: DROP PLASTIC
+        """
+        return self.send(f"DROP {class_name.upper()}")   # Send class name in uppercase
 
     def wait_done(self, timeout=None):
         """
         Wait for the Arduino to reply with 'DONE' or 'ERROR'.
         Returns True if 'DONE' is received, False on timeout or 'ERROR'.
         """
-        deadline = time.time() + (timeout or self.timeout)
-        while time.time() < deadline:
-            if self.conn and self.conn.in_waiting:
+        deadline = time.time() + (timeout or self.timeout)   # Calculate deadline timestamp
+        while time.time() < deadline:                         # Keep checking until deadline
+            if self.conn and self.conn.in_waiting:            # Data available in serial buffer
                 line = self.conn.readline().decode(errors='replace').strip().upper()
-                if "DONE" in line:
+                if "DONE" in line:     # Arduino finished successfully
                     return True
-                if "ERROR" in line:
+                if "ERROR" in line:    # Arduino reported an error
                     return False
-            time.sleep(0.05)      # Small delay to avoid busy‑waiting
-        return False
+            time.sleep(0.05)           # Small delay to avoid busy-waiting (~20 Hz)
+        return False                   # Timeout reached without response
 
     def close(self):
         """Close the serial connection."""
         if self.conn:
-            self.conn.close()
+            self.conn.close()   # Release the serial port
+
+# ----------------------------------------------------------------------
+# DROP-OFF FUNCTION
+# ----------------------------------------------------------------------
+def drop_object(arm, class_name, logger):
+    """
+    Tell Arduino to carry the held object to the correct bin and release it.
+
+    Python sends a single DROP command with the waste class name.
+    Arduino handles everything: lifting the arm, moving to the bin,
+    opening the gripper, and returning home. Python just waits for DONE.
+
+    Parameters
+    ----------
+    arm        : ArmComm - active serial connection to the Arduino
+    class_name : str     - detected waste class ("plastic", "paper", "cardboard")
+    logger     : Logger  - logger instance for status messages
+    """
+    logger.info(f"Sending DROP command for class: '{class_name}'")   # Log what we are dropping
+
+    # Send DROP command to Arduino - it knows where each bin is located
+    # and will handle the full movement sequence independently
+    if not arm.drop(class_name):                          # Send "DROP PLASTIC" (or paper/cardboard)
+        logger.error("Failed to send DROP command")       # Serial write failed
+        arm.home()                                        # Fail safe - go home
+        arm.wait_done(10)                                 # Wait for home to complete
+        return
+
+    # Wait for Arduino to complete the full drop sequence
+    # This includes: lift -> move to bin -> open gripper -> return home
+    # Timeout is generous because the full sequence takes several seconds
+    if not arm.wait_done(60):                                          # Wait up to 60 seconds
+        logger.warning("DROP command timed out - Arduino did not respond with DONE")
+    else:
+        logger.info(f"DROP complete for '{class_name}' - arm returned home")   # Success
 
 # ----------------------------------------------------------------------
 # DETECTION FUNCTION
@@ -191,40 +266,50 @@ def detect_best(frame, model):
     """
     Run YOLO detection on a single frame.
     Draw bounding boxes on the frame.
+    Skip any detection whose center falls inside an exclusion zone.
     Return the best (highest confidence) recyclable detection, or None if none.
     """
-    # Run inference with stream=True for lower memory usage
-    results = model.predict(
+    results = model.predict(              # Run YOLO inference on the frame
         frame, conf=CONFIDENCE_THRESHOLD,
         iou=0.45, verbose=False, stream=True
     )
-    r = next(results, None)          # Get the first (and only) result from the generator
+    r = next(results, None)               # Get the first result from the generator
 
-    if r is None or r.boxes is None: # No detections at all
+    if r is None or r.boxes is None:      # No detections at all in this frame
         return None
 
-    best = None
-    best_conf = 0.0
+    best = None       # Will hold the best detection found so far
+    best_conf = 0.0   # Confidence score of the best detection so far
 
-    # Iterate through all detected bounding boxes
     for xyxy, conf, c in zip(
-        r.boxes.xyxy.cpu().numpy(),      # bounding box coordinates (x1,y1,x2,y2)
-        r.boxes.conf.cpu().numpy(),      # confidence scores
-        r.boxes.cls.cpu().numpy().astype(int)  # class IDs
+        r.boxes.xyxy.cpu().numpy(),             # Bounding box corners (x1,y1,x2,y2)
+        r.boxes.conf.cpu().numpy(),             # Confidence scores
+        r.boxes.cls.cpu().numpy().astype(int)   # Class IDs as integers
     ):
-        info = WASTE_CLASSES.get(int(c))  # Get class info from our mapping
-        x1, y1, x2, y2 = map(int, xyxy)  # Convert to integers for drawing
-        conf_val = float(conf)
+        info = WASTE_CLASSES.get(int(c))    # Look up class info from our mapping
+        x1, y1, x2, y2 = map(int, xyxy)    # Convert coordinates to integers for drawing
+        conf_val = float(conf)              # Confidence as a float
 
-        if not info:   # Unknown class – draw red box and skip
+        cx_det = (x1 + x2) // 2   # Horizontal center of this bounding box
+        cy_det = (y1 + y2) // 2   # Vertical center of this bounding box
+
+        # Skip detection if its center is inside an exclusion zone (bin or arm area)
+        if point_in_exclusion_zone(cx_det, cy_det):
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (60, 60, 60), 1)     # Draw dimmed box
+            cv2.putText(frame, "ZONE", (x1, y1 - 8),                       # Label it ZONE
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
+            continue   # Ignore this detection entirely
+
+        if not info:   # Unknown class ID - draw red box and skip
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
             cv2.putText(frame, "UNKNOWN", (x1, y1 - 8),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             continue
 
-        name = info["name"]
-        recycle = info["recycle"]
-        # Choose color: recyclable uses class color, non‑recyclable uses grey
+        name = info["name"]       # Human-readable class name
+        recycle = info["recycle"] # Whether this class is recyclable
+
+        # Choose color: recyclable uses class color, non-recyclable uses grey
         color = CLASS_COLORS.get(name, CLASS_COLORS["default"]) if recycle else (128, 128, 128)
         label = f"{name} {conf_val:.2f}" if recycle else f"REJECT: {name}"
 
@@ -233,57 +318,59 @@ def detect_best(frame, model):
         cv2.putText(frame, label, (x1, y1 - 8),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-        # If this is a recyclable item and has higher confidence than previous best, keep it
+        # Keep this detection if it is recyclable and has higher confidence than current best
         if recycle and conf_val > best_conf:
             best_conf = conf_val
             best = {
                 "class_id":   int(c),
                 "class_name": name,
-                "center":     ((x1 + x2) // 2, (y1 + y2) // 2),  # pixel center
-                "bbox":       (x2 - x1, y2 - y1),                # width, height
+                "center":     (cx_det, cy_det),      # Pixel center of the bounding box
+                "bbox":       (x2 - x1, y2 - y1),   # Width and height of the bounding box
                 "confidence": conf_val,
             }
-    return best
+    return best   # Return best recyclable detection, or None if nothing found
 
 # ----------------------------------------------------------------------
 # FEEDBACK LOOP (runs in separate thread after the arm reaches the object)
 # ----------------------------------------------------------------------
 def feedback_loop(camera, model, arm, target_class, stop_event, done_event):
     """
-    This function runs in a separate thread while the arm is holding the object.
-    It monitors the camera: if the object disappears for DISAPPEAR_THRESHOLD frames,
-    it signals that the pick is complete (does NOT send GRIP – the gripper was already closed).
+    Runs in a separate thread while the arm is holding the object.
+    Monitors the camera: if the object disappears for DISAPPEAR_THRESHOLD frames,
+    it signals that the pick is complete.
     """
-    disappear = 0
-    while not stop_event.is_set():
-        ret, frame = camera.read()
-        if not ret:
+    disappear = 0   # Counter for consecutive frames where object is absent
+
+    while not stop_event.is_set():   # Keep running until main thread signals stop
+        ret, frame = camera.read()   # Grab a frame from the camera
+        if not ret:                  # Camera read failed - try again
             time.sleep(0.1)
             continue
 
-        # Run a quick detection on the frame to see if the target object is still visible
+        # Run detection to check if the target object is still visible
         results = model.predict(
             frame, conf=CONFIDENCE_THRESHOLD,
             verbose=False, stream=True
         )
         r = next(results, None)
-        visible = False
+        visible = False              # Assume object is not visible until proven otherwise
+
         if r and r.boxes:
-            for c in r.boxes.cls.cpu().numpy().astype(int):
-                if int(c) == target_class:
+            for c in r.boxes.cls.cpu().numpy().astype(int):   # Check all detected classes
+                if int(c) == target_class:                     # Found the target class
                     visible = True
                     break
 
         if visible:
-            disappear = 0                     # Object still there, reset counter
+            disappear = 0                      # Object still visible - reset counter
         else:
-            disappear += 1
+            disappear += 1                     # Object not visible - increment counter
             if disappear >= DISAPPEAR_THRESHOLD:
                 logging.info("Object gone — pick complete")
-                # Do NOT send GRIP again (gripper already closed after reaching)
-                done_event.set()              # Signal the main thread that pick is done
+                done_event.set()               # Signal main thread that pick is confirmed
                 break
-        time.sleep(0.1)                       # ~10 Hz monitoring rate
+
+        time.sleep(0.1)   # Run at ~10 Hz to avoid flooding the CPU
 
 # ----------------------------------------------------------------------
 # MAIN FUNCTION
@@ -298,7 +385,7 @@ def main():
 
     # ------------------- Load YOLO model -------------------
     try:
-        model = YOLO(MODEL_PATH)
+        model = YOLO(MODEL_PATH)                               # Load the trained model
         logger.info(f"Model loaded. Classes: {model.names}")
     except Exception as e:
         logger.error(f"Model load error: {e}")
@@ -334,46 +421,58 @@ def main():
         logger.warning("Arm not connected — commands will be simulated")
 
     # ------------------- State variables -------------------
-    busy = False                # True when arm is moving or picking
-    busy_start = 0              # Timestamp when busy state began (for timeout)
-    confirm = 0                 # Number of consecutive frames with same detection
-    last_detection = None       # Store the last valid detection
-    last_detect_time = time.time()   # Last time an object was detected (for idle timeout)
-    stop_fb = threading.Event()      # Signal to stop the feedback loop thread
-    done_fb = threading.Event()      # Signal that feedback loop has finished
-    fb_thread = None                 # Thread object for feedback loop
+    busy = False                          # True when arm is moving or picking
+    busy_start = 0                        # Timestamp when busy state began (for timeout)
+    confirm = 0                           # Number of consecutive frames with same detection
+    last_detection = None                 # Store the last valid detection
+    last_detect_time = time.time()        # Last time an object was detected (for idle timeout)
+    stop_fb = threading.Event()           # Signal to stop the feedback loop thread
+    done_fb = threading.Event()           # Signal that feedback loop has finished
+    fb_thread = None                      # Thread object for feedback loop
 
     logger.info("System READY. Press Q to quit, H for home, G to grip, R to release.")
 
     # ------------------- Main loop -------------------
     while True:
-        ret, frame = cap.read()
+        ret, frame = cap.read()   # Read one frame from the camera
         if not ret:
             break
 
-        # --- Timeout for stuck pick operation ---
-        if busy and (time.time() - busy_start) > PICK_TIMEOUT:
-            logger.error("Pick timeout — resetting arm")
-            stop_fb.set()
+        draw_exclusion_zones(frame)   # Draw exclusion zones on every frame
+
+        # --- Feedback loop finished: pick confirmed -> send DROP to Arduino ---
+        # This is checked FIRST so it always takes priority over the timeout below
+        if busy and done_fb.is_set():
+            logger.info("Object picked — sending DROP command to Arduino")
+            stop_fb.set()                      # Stop the feedback loop thread
             if fb_thread:
-                fb_thread.join(timeout=1)
-            arm.home()
-            arm.wait_done(10)
+                fb_thread.join(timeout=2)      # Wait for thread to finish cleanly
+            arm.wait_done(10)                  # Drain any remaining serial replies
+
+            # Send DROP command - Arduino handles all movement to bin and back home
+            if last_detection:
+                drop_object(arm, last_detection["class_name"], logger)
+            else:
+                logger.warning("No detection stored - going home as fallback")
+                arm.home()                     # Fail safe if detection was lost
+                arm.wait_done(10)
+
+            # Reset all state variables back to idle
             busy = False
             confirm = 0
+            last_detection = None              # Clear last detection after drop
             stop_fb.clear()
             done_fb.clear()
             fb_thread = None
 
-        # --- Feedback loop finished: pick is complete, return home ---
-        if busy and done_fb.is_set():
-            logger.info("Object picked — moving to drop position")
-            stop_fb.set()
+        # --- Timeout for stuck pick operation ---
+        # Checked AFTER done_fb so a successful pick always goes to drop first
+        if busy and (time.time() - busy_start) > PICK_TIMEOUT:
+            logger.error("Pick timeout — resetting arm")
+            stop_fb.set()                      # Stop the feedback loop thread
             if fb_thread:
-                fb_thread.join(timeout=2)
-            arm.wait_done(10)          # Wait for the final GRIP? (none, because we already closed)
-            # Optional drop‑off code (commented out)
-            arm.home()
+                fb_thread.join(timeout=1)
+            arm.home()                         # Return arm to safe position
             arm.wait_done(10)
             busy = False
             confirm = 0
@@ -383,51 +482,51 @@ def main():
 
         # --- Detection (only when arm is idle) ---
         if not busy:
-            det = detect_best(frame, model)
+            det = detect_best(frame, model)    # Run YOLO on current frame
             if det:
-                confirm += 1
-                last_detection = det
-                last_detect_time = time.time()
+                confirm += 1                   # Increment confirmation counter
+                last_detection = det           # Store latest valid detection
+                last_detect_time = time.time() # Update last detection timestamp
+
                 # Draw confirmation progress on the frame
                 cv2.putText(frame,
                             f"Confirming {confirm}/{DETECT_CONFIRM_FRAMES}",
                             (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
 
                 if confirm >= DETECT_CONFIRM_FRAMES:
-                    cx, cy = det["center"]   # Pixel center of the object
-                    w, h = det["bbox"]       # Bounding box width and height
-                    # Convert pixel to real‑world coordinates (note swapped order: y_cm, x_cm)
-                    x_cm, y_cm = pixel_to_cm(cx, cy, H)
+                    cx, cy = det["center"]     # Pixel center of the detected object
+                    w, h = det["bbox"]         # Bounding box width and height in pixels
+                    x_cm, y_cm = pixel_to_cm(cx, cy, H)   # Convert to real-world cm
 
                     logger.info(
                         f"Picking {det['class_name']} at "
-                        f"pixel=({cx},{cy}) → ({x_cm:.2f}, {y_cm:.2f}) cm"
+                        f"pixel=({cx},{cy}) -> ({x_cm:.2f}, {y_cm:.2f}) cm"
                     )
 
                     if not in_workspace(x_cm, y_cm):
                         logger.warning(f"({x_cm:.2f}, {y_cm:.2f}) outside workspace — skipping")
                         confirm = 0
                     else:
-                        # --- Open gripper BEFORE moving to the object ---
-                        # Note: GRIP is normally "close", but we are using it to "open" due to swapped behavior
-                        arm.grip()                     # Send GRIP command
+                        # Open gripper BEFORE moving to the object
+                        # Note: GRIP physically opens the gripper (inverted wiring)
+                        arm.grip()
                         if not arm.wait_done(5):
                             logger.warning("Gripper open command timed out")
                             confirm = 0
                             continue
 
-                        # Send PICK command and wait for arm to reach the position
+                        # Send PICK command - arm moves to object coordinates
                         if arm.pick(det["class_name"], x_cm, y_cm, w, h):
-                            if arm.wait_done(15):      # Wait for Arduino to finish moving
-                                # --- Close gripper NOW that the arm is over the object ---
-                                # Note: RELEASE is normally "open", but we use it to "close" (swapped)
+                            if arm.wait_done(15):      # Wait for arm to reach position
+                                # Close gripper now that arm is over the object
+                                # Note: RELEASE physically closes the gripper (inverted wiring)
                                 arm.release()
                                 if not arm.wait_done(2):
                                     logger.warning("Gripper close command timed out")
 
-                                # Start the feedback loop thread to monitor object disappearance
+                                # Start feedback loop thread to monitor object disappearance
                                 busy = True
-                                busy_start = time.time()
+                                busy_start = time.time()   # Record when busy state started
                                 confirm = 0
                                 stop_fb.clear()
                                 done_fb.clear()
@@ -437,7 +536,7 @@ def main():
                                           det["class_id"], stop_fb, done_fb),
                                     daemon=True
                                 )
-                                fb_thread.start()
+                                fb_thread.start()          # Start monitoring thread
                             else:
                                 logger.error("Arm did not reach pick position")
                                 arm.home()
@@ -445,18 +544,18 @@ def main():
                         else:
                             logger.error("Failed to send PICK command")
             else:
-                confirm = 0
+                confirm = 0   # No detection this frame - reset confirmation counter
 
-        # --- Auto‑home after prolonged idle (no detections) ---
+        # --- Auto-home after prolonged idle (no detections) ---
         if not busy and (time.time() - last_detect_time) > IDLE_HOME_TIMEOUT:
             logger.info("Idle timeout — sending HOME")
-            arm.home()
+            arm.home()                         # Return arm to resting position
             arm.wait_done(10)
-            last_detect_time = time.time()
+            last_detect_time = time.time()     # Reset timer to avoid spamming HOME
 
-        # --- Draw HUD (heads‑up display) on the frame ---
+        # --- Draw HUD (heads-up display) on the frame ---
         status = "BUSY" if busy else "READY"
-        color = (0, 165, 255) if busy else (0, 255, 0)
+        color = (0, 165, 255) if busy else (0, 255, 0)   # Orange when busy, green when idle
         cv2.putText(frame, f"Status: {status}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
         if last_detection and not busy:
@@ -467,21 +566,21 @@ def main():
 
         # --- Keyboard controls ---
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
+        if key == ord('q'):    # Q - quit the program
             break
         if not busy:
-            if key == ord('h'):
+            if key == ord('h'):        # H - manual home
                 arm.home()
                 arm.wait_done()
-            elif key == ord('g'):
+            elif key == ord('g'):      # G - manual grip (physically opens gripper)
                 arm.grip()
-            elif key == ord('r'):
+            elif key == ord('r'):      # R - manual release (physically closes gripper)
                 arm.release()
 
     # ------------------- Cleanup -------------------
-    cap.release()
-    cv2.destroyAllWindows()
-    arm.close()
+    cap.release()              # Release camera resource
+    cv2.destroyAllWindows()    # Close all OpenCV windows
+    arm.close()                # Close serial connection
 
 if __name__ == "__main__":
     main()
