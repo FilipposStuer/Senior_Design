@@ -110,7 +110,7 @@ void moveServosSmooth(const int targetAngles[6], int stepDelay = 20) {
         : targetAngles[i];
     }
     moveServos(intermediate);
-    delay(stepDelay);
+    delay(8);
   }
 }
 
@@ -120,7 +120,7 @@ void moveServosSmooth(const int targetAngles[6], int stepDelay = 20) {
 
 bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
   int   bestIdx = -1;
-  float minDist = 1e9f;
+  float minDist = 0.5f;
 
   for (int i = 0; i < IK_TABLE_SIZE; i++) {
     float dx   = IK_TABLE[i].x - x;
@@ -292,7 +292,7 @@ void processCommand(String raw) {
     upperClass.toUpperCase();
 
     // ── GARBAGE: pick up from vision coords, then drop to bin ──
-    if (upperClass == "GARBAGE") {
+    if (upperClass == "PLASTIC") {
       String coords = rest.substring(firstSpace + 1);
       coords.trim();
 
@@ -335,9 +335,11 @@ void processCommand(String raw) {
       moveServosSmooth(angles);
       angles[5] = GRIPPER_CLOSED;
       moveServosSmooth(angles, 10);
+      moveServosSmooth(HOME_ANGLES);
+      dropToPlasticBin();
 
       Serial.println("Dropping to plastic bin...");
-      dropToPlasticBin();
+      
       return;
     }
 
@@ -458,7 +460,7 @@ void setup() {
   Serial.println("Moving to home position...");
   memcpy(currentAngles, HOME_ANGLES, sizeof(HOME_ANGLES));
   moveServos(HOME_ANGLES);
-  delay(1000);
+  delay(100);
 
   Serial.println("Ready! Type HELP for commands.");
 }
