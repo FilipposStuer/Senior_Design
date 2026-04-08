@@ -30,10 +30,10 @@ uint16_t servoMin[6] = {130, 360, 60, 180, 60, 100};
 uint16_t servoMax[6] = {600, 600, 600, 600, 600, 600};
 #define SERVO_FREQ 50
 
-const int GRIPPER_CLOSED = 20;
-const int GRIPPER_OPEN   = 90;
+const int GRIPPER_CLOSED = 90;   // physically closes the gripper
+const int GRIPPER_OPEN   = 20;   // physically opens the gripper
 
-const int HOME_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
+const int HOME_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_OPEN};
 
 // Workspace limits in IK table space (post-translation)
 const float WS_X_MIN =  7.2f;
@@ -342,6 +342,7 @@ void processCommand(String raw) {
       Serial.println("Returning home with object...");
       int home[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
       moveServosSmooth(home, 30);
+      delay(500);   // wait for servos to physically reach home before continuing
 
       // Now carry it to the bin
       dropToPlasticBin();   // handles travel, release, and HOME internally
