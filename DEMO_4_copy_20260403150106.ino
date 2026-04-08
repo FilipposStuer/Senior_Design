@@ -42,11 +42,11 @@ const float WS_Y_MIN =  0.6f;
 const float WS_Y_MAX =  8.4f;
 
 // ─────────────────────────────────────────────
-// PLASTIC BIN POSITION (fixed, robot space)
+// BIN ANGLES (direct servo angles per class)
 // ─────────────────────────────────────────────
-const float BIN_RX  =  0.0f;
-const float BIN_RY  = 14.375f;   // 14 + 3/8 inches
-const float BIN_IKY =  7.0f;     // elevated drop height
+const int BIN_PAPER[6]     = { 50,  10,  90,  90, 90, 20};
+const int BIN_PLASTIC[6]   = { 25,  65, 110, 130, 90, 20};
+const int BIN_CARDBOARD[6] = {118,   0,  90,  90, 90, 20};
 
 // ─────────────────────────────────────────────
 // COORDINATE TRANSLATION
@@ -143,43 +143,31 @@ bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
 }
 
 // ─────────────────────────────────────────────
-// DROP TO PLASTIC BIN
+// DROP TO BIN
 // ─────────────────────────────────────────────
-// Assumes gripper is already closed around the object.
-// Moves to the fixed bin at elevated height, opens gripper, returns HOME.
+// Moves arm directly to the hardcoded bin angles for the given class,
+// opens the gripper to release the object, then returns HOME.
 
-void dropToPlasticBin() {
-  float ikx, iky;
-  toIKSpace(BIN_RX, BIN_RY, ikx, iky);
-  iky = BIN_IKY;   // override to elevated drop height
+void dropToBin(String classStr) {
+  const int* binAngles = nullptr;
 
-  // Clamp to table limits so ikLookup always finds a match
-  ikx = constrain(ikx, WS_X_MIN, WS_X_MAX);
-  iky = constrain(iky, WS_Y_MIN, WS_Y_MAX);
+  String upper = classStr;
+  upper.toUpperCase();
 
-  int baseAngle = computeBaseAngle(BIN_RX, BIN_RY);
-
-  Serial.print("BIN position: rx="); Serial.print(BIN_RX);
-  Serial.print(" ry="); Serial.print(BIN_RY);
-  Serial.print(" -> IK=("); Serial.print(ikx);
-  Serial.print(", "); Serial.print(iky); Serial.println(")");
-  Serial.print("Bin base angle: "); Serial.print(baseAngle); Serial.println(" deg");
-
-  if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
-    Serial.print("WARNING: Bin IK coords (");
-    Serial.print(ikx); Serial.print(", "); Serial.print(iky);
-    Serial.println(") outside reachable range");
-  }
-
-  int angles[6];
-  if (!ikLookup(ikx, iky, baseAngle, angles)) {
-    Serial.println("ERROR: No IK solution for bin position");
+  if      (upper == "PLASTIC")   binAngles = BIN_PLASTIC;
+  else if (upper == "PAPER")     binAngles = BIN_PAPER;
+  else if (upper == "CARDBOARD") binAngles = BIN_CARDBOARD;
+  else {
+    Serial.print("ERROR: Unknown bin class '"); Serial.print(classStr); Serial.println("'");
     return;
   }
 
-  // Travel to bin with gripper closed
+  // Copy bin angles, keep gripper closed while travelling
+  int angles[6];
+  memcpy(angles, binAngles, sizeof(angles));
   angles[5] = GRIPPER_CLOSED;
-  Serial.println("Moving to plastic bin...");
+
+  Serial.print("Moving to "); Serial.print(classStr); Serial.println(" bin...");
   moveServosSmooth(angles);
 
   // Release object
@@ -189,7 +177,7 @@ void dropToPlasticBin() {
 
   // Return home
   Serial.println("Returning home...");
-  int home[6] = {90, 90, 90, 90, 90, 90};
+  int home[6] = {90, 90, 90, 90, 90, GRIPPER_OPEN};
   moveServosSmooth(home, 30);
 
   Serial.println("DONE");
@@ -215,7 +203,7 @@ void printHelp() {
   Serial.println("-- Commands ------------------------");
   Serial.println("  MOVE x y           -- Move to position (e.g. MOVE 3.5 2.0)");
   Serial.println("  PICK class x y w h -- From vision");
-  Serial.println("    PLASTIC/PAPER/CARDBOARD -> pick at coords, drop to plastic bin, HOME");
+  Serial.println("    PLASTIC/PAPER/CARDBOARD -> pick at coords, drop to class bin, HOME");
   Serial.println("    BIODEGRADABLE/GLASS/METAL -> pick at coords and stop");
   Serial.println("  GRIP               -- Close gripper");
   Serial.println("  RELEASE            -- Open gripper");
@@ -349,7 +337,7 @@ void processCommand(String raw) {
       delay(500);   // wait for servos to physically reach home before continuing
 
       // Now carry it to the bin
-      dropToPlasticBin();   // handles travel, release, and HOME internally
+      dropToBin(classStr);   // handles travel, release, and HOME internally
       return;
     }
 
