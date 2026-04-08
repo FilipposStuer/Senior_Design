@@ -8,7 +8,7 @@
 
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
-#include "ik_table4.h"
+#include "ik_table.h"
 #include <math.h>
 
 // ─────────────────────────────────────────────
@@ -109,7 +109,7 @@ void moveServosSmooth(const int targetAngles[6], int stepDelay = 20) {
         : targetAngles[i];
     }
     moveServos(intermediate);
-    delay(8);
+    delay(15);
   }
 }
 
@@ -333,12 +333,10 @@ void processCommand(String raw) {
     if (upperClass == "PLASTIC" || upperClass == "PAPER" || upperClass == "CARDBOARD") {
       Serial.println("Moving to pick position...");
       moveServosSmooth(angles);
-      delay(400);   // wait for arm to physically reach pick position
 
       // Close gripper to grab object
       angles[5] = GRIPPER_CLOSED;
       moveServosSmooth(angles, 10);
-      delay(400);   // wait for gripper to physically close
 
       // Return home first (carrying the object)
       Serial.println("Returning home with object...");
