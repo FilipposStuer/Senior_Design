@@ -8,7 +8,7 @@
 
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
-#include "ik_table.h"
+#include "ik_table4.h"
 #include <math.h>
 
 // ─────────────────────────────────────────────
@@ -119,7 +119,7 @@ void moveServosSmooth(const int targetAngles[6], int stepDelay = 20) {
 
 bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
   int   bestIdx = -1;
-  float minDist = 0.5f;
+  float minDist = 1e9f;
 
   for (int i = 0; i < IK_TABLE_SIZE; i++) {
     float dx   = IK_TABLE[i].x - x;
@@ -152,6 +152,10 @@ void dropToPlasticBin() {
   float ikx, iky;
   toIKSpace(BIN_RX, BIN_RY, ikx, iky);
   iky = BIN_IKY;   // override to elevated drop height
+
+  // Clamp to table limits so ikLookup always finds a match
+  ikx = constrain(ikx, WS_X_MIN, WS_X_MAX);
+  iky = constrain(iky, WS_Y_MIN, WS_Y_MAX);
 
   int baseAngle = computeBaseAngle(BIN_RX, BIN_RY);
 
