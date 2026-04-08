@@ -1,8 +1,8 @@
 /**
  * ItsyBitsy M4 Firmware - Robot Arm Controller with PCA9685
  * Serial Monitor Control Version
- * v2.3 - GARBAGE class in PICK command now triggers a drop sequence:
- *        arm moves to fixed bin position, opens gripper, returns HOME.
+ * v2.3 - PLASTIC/PAPER/CARDBOARD trigger pick-then-drop-to-bin sequence.
+ *        All other classes (biodegradable, glass, metal) do a normal pick and stop.
  *        Bin position: rx=0, ry=14.375 (14+3/8), iky=7.0 (elevated drop)
  */
 
@@ -44,9 +44,8 @@ const float WS_Y_MAX =  8.4f;
 // ─────────────────────────────────────────────
 // PLASTIC BIN POSITION (fixed, robot space)
 // ─────────────────────────────────────────────
-// rx=0, ry=14+3/8 inches, drop height iky=7.0
 const float BIN_RX  =  0.0f;
-const float BIN_RY  = 14.375f;   // 14 + 3/8
+const float BIN_RY  = 14.375f;   // 14 + 3/8 inches
 const float BIN_IKY =  7.0f;     // elevated drop height
 
 // ─────────────────────────────────────────────
@@ -56,8 +55,8 @@ const float BIN_IKY =  7.0f;     // elevated drop height
 const float X_OFFSET = 7.5f;
 
 void toIKSpace(float rx, float ry, float &ikx, float &iky) {
-  ikx = sqrtf((rx+3) * (rx+3) + (ry) * (ry)) + 2.0;
-  iky = 3.0;   // default floor height; callers may override
+  ikx = sqrtf((rx + 3) * (rx + 3) + ry * ry) + 2.0f;
+  iky = 3.0f;   // default floor height; callers may override
 }
 
 int computeBaseAngle(float rx, float ry) {
@@ -124,7 +123,7 @@ bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
 
   for (int i = 0; i < IK_TABLE_SIZE; i++) {
     float dx   = IK_TABLE[i].x - x;
-    float dy   = IK_TABLE[i].y - y;   // match against actual y, not hardcoded 1
+    float dy   = IK_TABLE[i].y - y;
     float dist = dx*dx + dy*dy;
     if (dist < minDist) {
       minDist = dist;
@@ -146,8 +145,8 @@ bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
 // ─────────────────────────────────────────────
 // DROP TO PLASTIC BIN
 // ─────────────────────────────────────────────
-// Moves arm to the fixed plastic bin position at elevated height,
-// opens the gripper to release the held object, then returns HOME.
+// Assumes gripper is already closed around the object.
+// Moves to the fixed bin at elevated height, opens gripper, returns HOME.
 
 void dropToPlasticBin() {
   float ikx, iky;
@@ -165,7 +164,7 @@ void dropToPlasticBin() {
   if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
     Serial.print("WARNING: Bin IK coords (");
     Serial.print(ikx); Serial.print(", "); Serial.print(iky);
-    Serial.println(") outside reachable range — check BIN_RX/BIN_RY/BIN_IKY");
+    Serial.println(") outside reachable range");
   }
 
   int angles[6];
@@ -174,10 +173,9 @@ void dropToPlasticBin() {
     return;
   }
 
-  // Keep gripper closed while travelling to bin
+  // Travel to bin with gripper closed
   angles[5] = GRIPPER_CLOSED;
-
-  Serial.println("Moving to bin...");
+  Serial.println("Moving to plastic bin...");
   moveServosSmooth(angles);
 
   // Release object
@@ -212,8 +210,9 @@ void printStatus() {
 void printHelp() {
   Serial.println("-- Commands ------------------------");
   Serial.println("  MOVE x y           -- Move to position (e.g. MOVE 3.5 2.0)");
-  Serial.println("  PICK class x y w h -- From vision (e.g. PICK PLASTIC 3.5 2.0 100 80)");
-  Serial.println("                        class=GARBAGE -> drop to fixed bin, then HOME");
+  Serial.println("  PICK class x y w h -- From vision");
+  Serial.println("    PLASTIC/PAPER/CARDBOARD -> pick at coords, drop to plastic bin, HOME");
+  Serial.println("    BIODEGRADABLE/GLASS/METAL -> pick at coords and stop");
   Serial.println("  GRIP               -- Close gripper");
   Serial.println("  RELEASE            -- Open gripper");
   Serial.println("  HOME               -- Return to home position");
@@ -287,63 +286,11 @@ void processCommand(String raw) {
       return;
     }
 
-    String classStr = rest.substring(0, firstSpace);
+    String classStr  = rest.substring(0, firstSpace);
     String upperClass = classStr;
     upperClass.toUpperCase();
 
-    // ── GARBAGE: pick up from vision coords, then drop to bin ──
-    if (upperClass == "PLASTIC") {
-      String coords = rest.substring(firstSpace + 1);
-      coords.trim();
-
-      int sp1 = coords.indexOf(' ');
-      int sp2 = coords.indexOf(' ', sp1 + 1);
-      int sp3 = coords.indexOf(' ', sp2 + 1);
-
-      if (sp1 == -1 || sp2 == -1 || sp3 == -1) {
-        Serial.println("ERROR: Need 4 numbers after class (x y w h)");
-        return;
-      }
-
-      float rx = coords.substring(0, sp1).toFloat();
-      float ry = coords.substring(sp1 + 1, sp2).toFloat();
-
-      float ikx, iky;
-      toIKSpace(rx, ry, ikx, iky);
-      iky = 3.0f;  // floor pickup height
-
-      int baseAngle = computeBaseAngle(rx, ry);
-
-      Serial.print("GARBAGE pick: received=("); Serial.print(rx);
-      Serial.print(", "); Serial.print(ry); Serial.print(")");
-      Serial.print(" IK=("); Serial.print(ikx); Serial.print(", "); Serial.print(iky); Serial.println(")");
-      Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
-
-      if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
-        Serial.print("WARNING: IK coords (");
-        Serial.print(ikx); Serial.print(", "); Serial.print(iky);
-        Serial.println(") outside reachable range");
-      }
-
-      int angles[6];
-      if (!ikLookup(ikx, iky, baseAngle, angles)) {
-        Serial.println("ERROR: No IK solution for garbage position");
-        return;
-      }
-
-      Serial.println("Moving to pick position...");
-      moveServosSmooth(angles);
-      angles[5] = GRIPPER_CLOSED;
-      moveServosSmooth(angles, 10);
-      moveServosSmooth(HOME_ANGLES);
-      dropToPlasticBin();
-
-      Serial.println("Dropping to plastic bin...");
-      
-      return;
-    }
-
-    // ── All other classes: normal pick sequence ──
+    // Parse coords (shared by both branches)
     String coords = rest.substring(firstSpace + 1);
     coords.trim();
 
@@ -358,19 +305,17 @@ void processCommand(String raw) {
 
     float rx = coords.substring(0, sp1).toFloat();
     float ry = coords.substring(sp1 + 1, sp2).toFloat();
-    int   w  = (int)coords.substring(sp2 + 1, sp3).toFloat();
-    int   h  = (int)coords.substring(sp3 + 1).toFloat();
 
     float ikx, iky;
     toIKSpace(rx, ry, ikx, iky);
-    iky = 3.0f;  // floor pickup height
+    iky = 3.0f;   // floor pickup height
 
     int baseAngle = computeBaseAngle(rx, ry);
 
     Serial.print("PICK: class="); Serial.print(classStr);
     Serial.print(" received=("); Serial.print(rx); Serial.print(", "); Serial.print(ry); Serial.print(")");
-    Serial.print(" dist="); Serial.print(ikx - X_OFFSET);
     Serial.print(" IK=("); Serial.print(ikx); Serial.print(", "); Serial.print(iky); Serial.println(")");
+    Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
 
     if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX) {
       Serial.print("WARNING: IK coords (");
@@ -378,18 +323,36 @@ void processCommand(String raw) {
       Serial.println(") outside reachable range");
     }
 
-    Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
-
     int angles[6];
     if (!ikLookup(ikx, iky, baseAngle, angles)) {
       Serial.println("ERROR: No IK solution for that position");
       return;
     }
 
+    // ── PLASTIC / PAPER / CARDBOARD: pick then drop to plastic bin ──
+    if (upperClass == "PLASTIC" || upperClass == "PAPER" || upperClass == "CARDBOARD") {
+      Serial.println("Moving to pick position...");
+      moveServosSmooth(angles);
+
+      // Close gripper to grab object
+      angles[5] = GRIPPER_CLOSED;
+      moveServosSmooth(angles, 10);
+
+      // Return home first (carrying the object)
+      Serial.println("Returning home with object...");
+      int home[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
+      moveServosSmooth(home, 30);
+
+      // Now carry it to the bin
+      dropToPlasticBin();   // handles travel, release, and HOME internally
+      return;
+    }
+
+    // ── All other classes (biodegradable, glass, metal): normal pick, stop ──
     Serial.println("Moving to pick position...");
     moveServosSmooth(angles);
-    angles[5] = 20;
-    moveServosSmooth(angles);
+    angles[5] = GRIPPER_CLOSED;
+    moveServosSmooth(angles, 10);
     Serial.println("DONE");
     Serial1.println("DONE");
   }
@@ -450,7 +413,8 @@ void setup() {
 
   Serial.println("=====================================");
   Serial.println("  Robot Arm - Vision Ready  v2.3     ");
-  Serial.println("  GARBAGE class -> bin drop + HOME   ");
+  Serial.println("  PLASTIC/PAPER/CARDBOARD -> bin      ");
+  Serial.println("  BIO/GLASS/METAL -> pick & stop      ");
   Serial.println("=====================================");
 
   Wire.begin();
