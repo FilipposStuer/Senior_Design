@@ -175,13 +175,15 @@ void dropToBin(String classStr) {
   angles[5] = GRIPPER_OPEN;
   moveServosSmooth(angles, 10);
 
-  // Jiggle gripper to ensure object falls into bin
-  Serial.println("Jiggling gripper...");
+  // Jiggle gripper rotation to ensure object falls into bin
+  Serial.println("Jiggling gripper rotation...");
+  int jigAngles[6];
+  memcpy(jigAngles, currentAngles, sizeof(jigAngles));
   for (int i = 0; i < 4; i++) {
-    angles[5] = GRIPPER_CLOSED;
-    moveServosSmooth(angles, 10);
-    angles[5] = GRIPPER_OPEN;
-    moveServosSmooth(angles, 10);
+    jigAngles[4] = 100;
+    moveServosSmooth(jigAngles, 10);
+    jigAngles[4] = 80;
+    moveServosSmooth(jigAngles, 10);
   }
 
   // Return home
@@ -336,8 +338,21 @@ void processCommand(String raw) {
 
     // ── PLASTIC / PAPER / CARDBOARD: pick then drop to bin ──
     if (upperClass == "PLASTIC" || upperClass == "PAPER" || upperClass == "CARDBOARD") {
+      // Rotate gripper BEFORE moving down so it arrives oriented correctly
+      Serial.println("Rotating gripper...");
+      int rotAngles[6];
+      memcpy(rotAngles, currentAngles, sizeof(rotAngles));
+      rotAngles[4] = constrain(gripRot, 0, 180);
+      moveServosSmooth(rotAngles, 10);
+      delay(200);
+
+      // Open gripper before descending to object
+      rotAngles[5] = GRIPPER_OPEN;
+      moveServosSmooth(rotAngles, 10);
+
       Serial.println("Moving to pick position...");
-      angles[4] = constrain(gripRot, 0, 180);   // apply gripper rotation
+      angles[4] = constrain(gripRot, 0, 180);   // carry rotation into pick pose
+      angles[5] = GRIPPER_OPEN;                  // keep open while descending
       moveServosSmooth(angles);
 
       // Close gripper to grab object
