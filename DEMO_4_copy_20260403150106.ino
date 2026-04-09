@@ -175,6 +175,15 @@ void dropToBin(String classStr) {
   angles[5] = GRIPPER_OPEN;
   moveServosSmooth(angles, 10);
 
+  // Jiggle gripper to ensure object falls into bin
+  Serial.println("Jiggling gripper...");
+  for (int i = 0; i < 4; i++) {
+    angles[5] = GRIPPER_CLOSED;
+    moveServosSmooth(angles, 10);
+    angles[5] = GRIPPER_OPEN;
+    moveServosSmooth(angles, 10);
+  }
+
   // Return home
   Serial.println("Returning home...");
   int home[6] = {90, 90, 90, 90, 90, GRIPPER_OPEN};
@@ -289,6 +298,7 @@ void processCommand(String raw) {
     int sp1 = coords.indexOf(' ');
     int sp2 = coords.indexOf(' ', sp1 + 1);
     int sp3 = coords.indexOf(' ', sp2 + 1);
+    int sp4 = coords.indexOf(' ', sp3 + 1);
 
     if (sp1 == -1 || sp2 == -1 || sp3 == -1) {
       Serial.println("ERROR: Need 4 numbers after class (x y w h)");
@@ -297,6 +307,9 @@ void processCommand(String raw) {
 
     float rx = coords.substring(0, sp1).toFloat();
     float ry = coords.substring(sp1 + 1, sp2).toFloat();
+    int   w  = (int)coords.substring(sp2 + 1, sp3).toFloat();
+    int   h  = (int)coords.substring(sp3 + 1, sp4 == -1 ? coords.length() : sp4).toFloat();
+    int   gripRot = (sp4 == -1) ? 90 : coords.substring(sp4 + 1).toInt();
 
     float ikx, iky;
     toIKSpace(rx, ry, ikx, iky);
@@ -321,9 +334,10 @@ void processCommand(String raw) {
       return;
     }
 
-    // ── PLASTIC / PAPER / CARDBOARD: pick then drop to plastic bin ──
+    // ── PLASTIC / PAPER / CARDBOARD: pick then drop to bin ──
     if (upperClass == "PLASTIC" || upperClass == "PAPER" || upperClass == "CARDBOARD") {
       Serial.println("Moving to pick position...");
+      angles[4] = constrain(gripRot, 0, 180);   // apply gripper rotation
       moveServosSmooth(angles);
 
       // Close gripper to grab object
@@ -341,13 +355,10 @@ void processCommand(String raw) {
       return;
     }
 
-    // ── All other classes (biodegradable, glass, metal): normal pick, stop ──
-    Serial.println("Moving to pick position...");
-    moveServosSmooth(angles);
-    angles[5] = GRIPPER_CLOSED;
-    moveServosSmooth(angles, 10);
-    Serial.println("DONE");
+    // ── All other classes (biodegradable, glass, metal): ignore ──
+    Serial.print("Ignoring class: "); Serial.println(classStr);
     Serial1.println("DONE");
+    return;
   }
 
   // ── GRIP ──
