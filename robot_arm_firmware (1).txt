@@ -1,0 +1,437 @@
+/**
+ * ItsyBitsy M4 Firmware - Robot Arm Controller with PCA9685
+ * Serial Monitor Control Version
+ * v2.3 - PLASTIC/METAL/CARDBOARD trigger pick-then-drop-to-bin sequence.
+ *        All other classes (biodegradable, glass, paper) are ignored.
+ */
+
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+#include "ik_table.h"
+#include <math.h>
+
+// ─────────────────────────────────────────────
+// PCA9685 CONFIGURATION
+// ─────────────────────────────────────────────
+
+#define PCA9685_ADDR 0x40
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
+
+const int CH_BASE        = 0;
+const int CH_SHOULDER    = 1;
+const int CH_ELBOW       = 2;
+const int CH_WRIST       = 3;
+const int CH_GRIPPER_ROT = 4;
+const int CH_GRIPPER     = 5;
+const int CHANNELS[6]    = {
+  CH_BASE, CH_SHOULDER, CH_ELBOW, CH_WRIST, CH_GRIPPER_ROT, CH_GRIPPER
+};
+
+uint16_t servoMin[6] = {130, 360, 60, 180, 60, 100};
+uint16_t servoMax[6] = {600, 600, 600, 600, 600, 600};
+#define SERVO_FREQ 50
+
+const int GRIPPER_CLOSED = 90;
+const int GRIPPER_OPEN   = 20;
+
+const int HOME_ANGLES[6]       = {90, 90, 90, 90, 90, GRIPPER_OPEN};
+const int HOME_CARRY_ANGLES[6] = {90, 90, 90, 90, 90, GRIPPER_CLOSED};
+
+const float WS_X_MIN =  7.2f;
+const float WS_X_MAX = 15.0f;
+const float WS_Y_MIN =  0.6f;
+const float WS_Y_MAX =  8.4f;
+
+// ─────────────────────────────────────────────
+// BIN ANGLES
+// ─────────────────────────────────────────────
+
+const int BIN_METAL[6]     = { 50,  10,  90,  90, 90, 20};
+const int BIN_PLASTIC[6]   = { 25,  65, 110, 130, 90, 20};
+const int BIN_CARDBOARD[6] = {118,   0,  90,  90, 90, 20};
+
+// ─────────────────────────────────────────────
+// COORDINATE TRANSLATION
+// ─────────────────────────────────────────────
+
+const float X_OFFSET = 7.5f;
+
+void toIKSpace(float rx, float ry, float &ikx, float &iky) {
+  if (rx < 7.5f) rx = 15.0f - rx;
+  ikx = sqrtf((rx + 3) * (rx + 3) + ry * ry) + 2.0f;
+  iky = 3.0f;
+}
+
+int computeBaseAngle(float rx, float ry) {
+  return (int)round(atan2f(ry, X_OFFSET - rx) * 180.0f / PI);
+}
+
+int currentAngles[6];
+
+// ─────────────────────────────────────────────
+// SERIAL REPLY HELPERS
+// ─────────────────────────────────────────────
+
+void replyDone() {
+  Serial.println("DONE");
+  Serial1.println("DONE");
+}
+
+void replyError(const String& msg) {
+  Serial.print("ERROR: ");
+  Serial.println(msg);
+  Serial1.println("ERROR");
+}
+
+// ─────────────────────────────────────────────
+// PCA9685 FUNCTIONS
+// ─────────────────────────────────────────────
+
+void initPCA9685() {
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(SERVO_FREQ);
+  delay(10);
+}
+
+void setServoAngle(int channel, int angle) {
+  angle = constrain(angle, 0, 180);
+  uint16_t pulse = map(angle, 0, 180, servoMin[channel], servoMax[channel]);
+  pwm.setPWM(CHANNELS[channel], 0, pulse);
+}
+
+void moveServos(const int angles[6]) {
+  for (int i = 0; i < 6; i++) {
+    setServoAngle(i, angles[i]);
+    currentAngles[i] = angles[i];
+  }
+}
+
+void moveServosSmooth(const int targetAngles[6], int stepDelay = 20) {
+  int startAngles[6];
+  memcpy(startAngles, currentAngles, sizeof(startAngles));
+
+  int maxSteps = 0;
+  int steps[6];
+  for (int i = 0; i < 6; i++) {
+    steps[i] = abs(targetAngles[i] - startAngles[i]);
+    if (steps[i] > maxSteps) maxSteps = steps[i];
+  }
+  if (maxSteps == 0) return;
+
+  for (int step = 1; step <= maxSteps; step++) {
+    int intermediate[6];
+    for (int i = 0; i < 6; i++) {
+      intermediate[i] = (steps[i] > 0)
+        ? startAngles[i] + (targetAngles[i] - startAngles[i]) * step / maxSteps
+        : targetAngles[i];
+    }
+    moveServos(intermediate);
+    delay(15);
+  }
+}
+
+// ─────────────────────────────────────────────
+// IK LOOKUP
+// ─────────────────────────────────────────────
+
+bool ikLookup(float x, float y, int baseAngle, int outputAngles[6]) {
+  int   bestIdx = -1;
+  float minDist = 1e9f;
+
+  for (int i = 0; i < IK_TABLE_SIZE; i++) {
+    float dx   = IK_TABLE[i].x - x;
+    float dy   = IK_TABLE[i].y - y;
+    float dist = dx * dx + dy * dy;
+    if (dist < minDist) {
+      minDist = dist;
+      bestIdx = i;
+    }
+  }
+
+  if (bestIdx >= 0) {
+    memcpy(outputAngles, IK_TABLE[bestIdx].angles, 6 * sizeof(int));
+    outputAngles[0] = constrain(baseAngle, 0, 180);
+    outputAngles[5] = currentAngles[5];
+    Serial.print("  Matched table entry: x=");
+    Serial.print(IK_TABLE[bestIdx].x);
+    Serial.print(" y=");
+    Serial.println(IK_TABLE[bestIdx].y);
+    return true;
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────
+// DROP TO BIN
+// ─────────────────────────────────────────────
+
+void dropToBin(String classStr) {
+  const int* binAngles = nullptr;
+
+  String upper = classStr;
+  upper.toUpperCase();
+
+  if      (upper == "PLASTIC")   binAngles = BIN_PLASTIC;
+  else if (upper == "METAL")     binAngles = BIN_METAL;
+  else if (upper == "CARDBOARD") binAngles = BIN_CARDBOARD;
+  else {
+    replyError("Unknown bin class '" + classStr + "'");
+    return;
+  }
+
+  int angles[6];
+  memcpy(angles, binAngles, sizeof(angles));
+  angles[5] = GRIPPER_CLOSED;
+
+  Serial.print("Moving to "); Serial.print(classStr); Serial.println(" bin...");
+  moveServosSmooth(angles);
+
+  Serial.println("Releasing into bin...");
+  angles[5] = GRIPPER_OPEN;
+  moveServosSmooth(angles, 10);
+
+  Serial.println("Jiggling gripper rotation...");
+  int jigAngles[6];
+  memcpy(jigAngles, currentAngles, sizeof(jigAngles));
+  for (int i = 0; i < 4; i++) {
+    jigAngles[4] = 100;
+    moveServosSmooth(jigAngles, 10);
+    jigAngles[4] = 80;
+    moveServosSmooth(jigAngles, 10);
+  }
+
+  Serial.println("Returning home...");
+  moveServosSmooth(HOME_ANGLES, 30);
+
+  replyDone();
+}
+
+// ─────────────────────────────────────────────
+// PRINT HELPERS
+// ─────────────────────────────────────────────
+
+void printStatus() {
+  Serial.println("-- Current Angles ------------------");
+  const char* names[6] = {
+    "Base      ", "Shoulder  ", "Elbow     ",
+    "Wrist     ", "Grip Rot  ", "Gripper   "
+  };
+  for (int i = 0; i < 6; i++) {
+    Serial.print("  "); Serial.print(names[i]);
+    Serial.print(": "); Serial.print(currentAngles[i]); Serial.println(" deg");
+  }
+  Serial.println("------------------------------------");
+}
+
+void printHelp() {
+  Serial.println("-- Commands ------------------------");
+  Serial.println("  MOVE x y           -- Move to position");
+  Serial.println("  PICK class x y w h griprot -- From vision");
+  Serial.println("    PLASTIC/METAL/CARDBOARD -> pick, drop to bin, HOME");
+  Serial.println("    BIODEGRADABLE/GLASS/PAPER -> ignored");
+  Serial.println("  GRIP               -- Close gripper");
+  Serial.println("  RELEASE            -- Open gripper");
+  Serial.println("  HOME               -- Return to home");
+  Serial.println("  STATUS             -- Show current angles");
+  Serial.println("  HELP               -- Show this list");
+  Serial.println("------------------------------------");
+}
+
+// ─────────────────────────────────────────────
+// COMMAND PROCESSING
+// ─────────────────────────────────────────────
+
+void processCommand(String raw) {
+  raw.trim();
+  if (raw.length() == 0) return;
+
+  String upper = raw;
+  upper.toUpperCase();
+
+  // ── MOVE x y ──
+  if (upper.startsWith("MOVE")) {
+    String coords = raw.substring(4);
+    coords.trim();
+
+    int sp1 = coords.indexOf(' ');
+    if (sp1 == -1) { replyError("Usage is MOVE x y"); return; }
+
+    float rx = coords.substring(0, sp1).toFloat();
+    float ry = coords.substring(sp1 + 1).toFloat();
+
+    float ikx, iky;
+    toIKSpace(rx, ry, ikx, iky);
+
+    Serial.print("Received  ("); Serial.print(rx); Serial.print(", "); Serial.print(ry); Serial.println(")");
+    Serial.print("IK space  ("); Serial.print(ikx); Serial.print(", "); Serial.print(iky); Serial.println(")");
+
+    if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX)
+      Serial.println("WARNING: outside reachable range");
+
+    int baseAngle = computeBaseAngle(rx, ry);
+    Serial.print("Base angle: "); Serial.print(baseAngle); Serial.println(" deg");
+
+    int angles[6];
+    if (!ikLookup(ikx, iky, baseAngle, angles)) { replyError("No IK solution"); return; }
+
+    moveServosSmooth(angles);
+    replyDone();
+  }
+
+  // ── PICK ──
+  else if (upper.startsWith("PICK")) {
+    String rest = raw.substring(4);
+    rest.trim();
+
+    int firstSpace = rest.indexOf(' ');
+    if (firstSpace == -1) { replyError("Invalid PICK format"); return; }
+
+    String classStr  = rest.substring(0, firstSpace);
+    String upperClass = classStr;
+    upperClass.toUpperCase();
+
+    String coords = rest.substring(firstSpace + 1);
+    coords.trim();
+
+    int sp1 = coords.indexOf(' ');
+    int sp2 = coords.indexOf(' ', sp1 + 1);
+    int sp3 = coords.indexOf(' ', sp2 + 1);
+    int sp4 = coords.indexOf(' ', sp3 + 1);
+
+    if (sp1 == -1 || sp2 == -1 || sp3 == -1) {
+      replyError("Need 4 numbers after class (x y w h)");
+      return;
+    }
+
+    float rx      = coords.substring(0, sp1).toFloat();
+    float ry      = coords.substring(sp1 + 1, sp2).toFloat();
+    int   w       = (int)coords.substring(sp2 + 1, sp3).toFloat();
+    int   h       = (int)coords.substring(sp3 + 1, sp4 == -1 ? coords.length() : sp4).toFloat();
+    float angleDeg = (sp4 == -1) ? 0.0f : coords.substring(sp4 + 1).toFloat();
+
+    // Convert OBB angle (degrees) to gripper rotation servo value.
+    // Servo range: 90 = 0° (no rotation), 20 = 90° (full rotation).
+    // We take abs and clamp to 0-90 since the gripper is symmetric.
+    float absAngle = fabs(fmod(angleDeg, 90.0f));
+    int   gripRot  = constrain((int)round(90.0f - (absAngle / 90.0f) * 70.0f), 20, 90);
+
+    float ikx, iky;
+    toIKSpace(rx, ry, ikx, iky);
+    iky = 3.0f;
+
+    int baseAngle = computeBaseAngle(rx, ry);
+
+    Serial.print("PICK: class="); Serial.print(classStr);
+    Serial.print(" rx="); Serial.print(rx); Serial.print(" ry="); Serial.print(ry);
+    Serial.print(" IK=("); Serial.print(ikx); Serial.print(","); Serial.print(iky); Serial.print(")");
+    Serial.print(" angle="); Serial.print(angleDeg); Serial.print("deg");
+    Serial.print(" gripRot="); Serial.println(gripRot);
+
+    if (ikx < WS_X_MIN || ikx > WS_X_MAX || iky < WS_Y_MIN || iky > WS_Y_MAX)
+      Serial.println("WARNING: outside reachable range");
+
+    int angles[6];
+    if (!ikLookup(ikx, iky, baseAngle, angles)) {
+      replyError("No IK solution for that position");
+      return;
+    }
+
+    // ── Bin classes: full pick + drop sequence ──
+    if (upperClass == "PLASTIC" || upperClass == "METAL" || upperClass == "CARDBOARD") {
+      Serial.println("Rotating gripper...");
+      int rotAngles[6];
+      memcpy(rotAngles, currentAngles, sizeof(rotAngles));
+      rotAngles[4] = constrain(gripRot, 0, 180);
+      moveServosSmooth(rotAngles, 10);
+      delay(200);
+
+      rotAngles[5] = GRIPPER_OPEN;
+      moveServosSmooth(rotAngles, 10);
+
+      Serial.println("Moving to pick position...");
+      angles[4] = constrain(gripRot, 0, 180);
+      angles[5] = GRIPPER_OPEN;
+      moveServosSmooth(angles);
+
+      angles[5] = GRIPPER_CLOSED;
+      moveServosSmooth(angles, 10);
+
+      Serial.println("Returning home with object...");
+      moveServosSmooth(HOME_CARRY_ANGLES, 30);
+      delay(500);
+
+      dropToBin(classStr);
+      return;
+    }
+
+    // ── All other classes: ignore ──
+    Serial.print("Ignoring class: "); Serial.println(classStr);
+    replyDone();
+  }
+
+  // ── GRIP ──
+  else if (upper.startsWith("GRIP")) {
+    int angles[6];
+    memcpy(angles, currentAngles, sizeof(angles));
+    angles[5] = GRIPPER_CLOSED;
+    moveServosSmooth(angles, 10);
+    replyDone();
+  }
+
+  // ── RELEASE ──
+  else if (upper.startsWith("RELEASE")) {
+    int angles[6];
+    memcpy(angles, currentAngles, sizeof(angles));
+    angles[5] = GRIPPER_OPEN;
+    moveServosSmooth(angles, 10);
+    replyDone();
+  }
+
+  // ── HOME ──
+  else if (upper.startsWith("HOME")) {
+    moveServosSmooth(HOME_ANGLES, 30);
+    replyDone();
+  }
+
+  // ── STATUS ──
+  else if (upper.startsWith("STATUS")) { printStatus(); }
+
+  // ── HELP ──
+  else if (upper.startsWith("HELP"))   { printHelp(); }
+
+  // ── UNKNOWN ──
+  else { replyError("Unknown command \"" + raw + "\" -- type HELP"); }
+}
+
+// ─────────────────────────────────────────────
+// SETUP & LOOP
+// ─────────────────────────────────────────────
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial) delay(10);
+
+  Serial.println("=====================================");
+  Serial.println("  Robot Arm - Vision Ready  v2.3     ");
+  Serial.println("  PLASTIC/METAL/CARDBOARD -> bin     ");
+  Serial.println("  BIO/GLASS/PAPER -> ignored         ");
+  Serial.println("=====================================");
+
+  Wire.begin();
+  Serial1.begin(9600);
+  initPCA9685();
+
+  memcpy(currentAngles, HOME_ANGLES, sizeof(HOME_ANGLES));
+  moveServos(HOME_ANGLES);
+  delay(100);
+
+  Serial.println("Ready! Type HELP for commands.");
+}
+
+void loop() {
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    processCommand(cmd);
+  }
+}
